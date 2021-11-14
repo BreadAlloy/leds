@@ -1,15 +1,8 @@
 cmake_minimum_required(VERSION 3.0.0)
 
 # read and parse version file
-file(READ version PROJECT_VERSION)
-string(STRIP ${PROJECT_VERSION} PROJECT_VERSION)
-string(REGEX REPLACE "([0-9]+)\\.[0-9]+\\.[0-9]+" "\\1" VERSION_MAJOR ${PROJECT_VERSION})
-string(REGEX REPLACE "[0-9]+\\.([0-9]+)\\.[0-9]+" "\\1" VERSION_MINOR ${PROJECT_VERSION})
-string(REGEX REPLACE "[0-9]+\\.[0-9]+\\.([0-9]+)" "\\1" VERSION_MICRO ${PROJECT_VERSION})
 
-set(HEADERDEF "${VERSION_MAJOR}_${VERSION_MINOR}_${VERSION_MICRO}")
-
-project(rpi_ws281x VERSION ${PROJECT_VERSION})
+project(rpi_ws281x VERSION "1.1.0")
 
 option(BUILD_SHARED "Build as shared library" OFF)
 option(BUILD_TEST "Build test application" ON)
@@ -44,8 +37,6 @@ set(TEST_SOURCES
 )
 
 include(GNUInstallDirs)
-
-configure_file(version.h.in version.h)
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/pkg-config.pc.in"
