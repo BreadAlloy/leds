@@ -1,16 +1,18 @@
-#!/usr/bin/env python3
-# rpi_ws281x library strandtest example
-# Author: Tony DiCola (tony@tonydicola.com)
+#!/usr/bin/env python3 rpi_ws281x library strandtest example Author: Tony DiCola (tony@tonydicola.com)
 #
 # Direct port of the Arduino NeoPixel library strandtest example.  Showcases
 # various animations on a strip of NeoPixels.
 
 import time
 from rpi_ws281x import *
+from neopixel import *
+from timeit import default_timer as timerx
 import argparse
+import threading
+import array
 
 # LED strip configuration:
-LED_COUNT      = 16      # Number of LED pixels.
+LED_COUNT      = 640      # Number of LED pixels.
 LED_PIN        = 18      # GPIO pin connected to the pixels (18 uses PWM!).
 #LED_PIN        = 10      # GPIO pin connected to the pixels (10 uses SPI /dev/spidev0.0).
 LED_FREQ_HZ    = 800000  # LED signal frequency in hertz (usually 800khz)
@@ -20,63 +22,238 @@ LED_INVERT     = False   # True to invert the signal (when using NPN transistor 
 LED_CHANNEL    = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
 
 
+brightness = 100
+speed_wave = 2
+lenght_wave = 50
 
-# Define functions which animate LEDs in various ways.
-def colorWipe(strip, color, wait_ms=50):
-    """Wipe color across display a pixel at a time."""
-    for i in range(strip.numPixels()):
-        strip.setPixelColor(i, color)
+
+
+
+rainbowswitch = True
+staticswitch = False
+stresstestswitch = False
+timerswitch1 = True
+inputswitch = False
+
+def operator():
+    global brightness
+    global speed_wave
+    global lenght_wave
+
+    global rainbowswitch
+    global staticswitch
+    global inputswitch
+    global stresstestswitch
+    global timerswitch1
+
+    try:
+        while True:
+            dddd = timerx()
+            print("timer"+str(dddd))
+            if inputswitch:
+                op = input("Operation")
+                if op == "b":
+                   # switch()
+                    brightness = int(input("Brightness"))
+                    inputswitch = True
+                elif op == "static":
+                    switch()
+                    staticswitch = True
+                elif op == "rainbow":
+                    switch()
+                    time.sleep(0.1)
+                    rainbowswitch = True
+                elif op == "stresstest":
+                    switch()
+                    stresstestswitch = True
+                elif op == "off":
+                    offanim()
+                    inputswitch = True
+                elif op == "timeron":
+                    timerswitch1 = True
+                    print("Timer in on")
+                op = "stop"
+            time.sleep(1)
+    except KeyboardInterrupt:
+         print("aaa")
+
+def switch():
+    global rainbowswitch
+    global staticswitch
+    global inputswitch
+    global stresstestswitch
+
+    inputswitch = False
+    rainbowswitch = False
+    staticswitch = False
+    stresstestswitch = False
+
+def staticinput():
+    col1 = int(input("red"))
+    col2 = int(input("green"))
+    col3 = int(input("blue"))
+    for j in range(0, strip.numPixels()):
+        strip.setPixelColor(j, Color(col1, col2, col3))
+    strip.show()
+
+def staticset(col1, col2 ,col3):
+    for j in range(0, strip.numPixels()):
+        strip.setPixelColor(j, Color(col1, col2, col3))
+    strip.show()
+
+def offanim():
+    time.sleep(int(input("Delay(min)"))*60)
+    switch()
+    time.sleep(1)
+    colorr = array.array('i', [])
+    colorg = array.array('i', [])
+    colorb = array.array('i', [])
+    for j in range(0, strip.numPixels()):
+         colorr.append(j)
+         colorg.append(j)
+         colorb.append(j)
+         color = bin(strip.getPixelColor(j))
+         color = color.replace("0b", "00000000000000000000000", 1)
+         colorl = len(color)
+         colorr[j] = int(color[colorl-24:colorl-16], 2)
+         colorg[j] = int(color[colorl-16:colorl-8], 2)
+         colorb[j] = int(color[colorl-8:colorl], 2)
+    for i in range(0, brightness):
+        for j in range(0, strip.numPixels()):
+             if colorr[j] - 1 >= 0:
+                 colorr[j] = colorr[j] - 1
+             if colorg[j] - 1 >= 0:
+                 colorg[j] = colorg[j] - 1
+             if colorb[j] - 1 >= 0:
+                 colorb[j] = colorb[j] - 1
+             strip.setPixelColor(j, Color(colorr[j], colorg[j], colorb[j]))
         strip.show()
-        time.sleep(wait_ms/1000.0)
 
-def theaterChase(strip, color, wait_ms=50, iterations=10):
-    """Movie theater light style chaser animation."""
-    for j in range(iterations):
-        for q in range(3):
-            for i in range(0, strip.numPixels(), 3):
-                strip.setPixelColor(i+q, color)
+def rainbow2(phase, lenght):
+    aa = timerx()
+    i = 0
+    point = (phase)/lenght
+    xxxx=strip.numPixels()
+    while(i <= xxxx):
+        while(point > 1):
+            point = point - 1
+        strip.setPixelColor(i, Color(spectrum2(point), spectrum2(point+0.3333), spectrum2(point+0.6666)))
+        point = point + 1/lenght
+        i = i + 1
+    bb = timerx();
+    #print("calc=" + str(bb-aa))
+    a = timerx();
+    strip.show()
+    b = timerx();
+    #print("show=" + str(b-a));
+
+def spectrum2(point):
+     global brightness
+     mod = 0.29  #0.25782
+     if(point > 1):
+         point = point - 1
+     if(point < mod*2):
+         return round((-(point * 1/mod - 1)**2 + 1) * brightness)
+     else:
+         return 0
+
+def framess():
+        print(str(time.localtime()))
+        for i in range(0, strip.numPixels()):
+            strip.setPixelColor(strip.numPixels() - i, Color(i, 0, 0))
             strip.show()
-            time.sleep(wait_ms/1000.0)
-            for i in range(0, strip.numPixels(), 3):
-                strip.setPixelColor(i+q, 0)
+        print(str(time.localtime()))
 
-def wheel(pos):
-    """Generate rainbow colors across 0-255 positions."""
-    if pos < 85:
-        return Color(pos * 3, 255 - pos * 3, 0)
-    elif pos < 170:
-        pos -= 85
-        return Color(255 - pos * 3, 0, pos * 3)
+def wave(man):
+    global brightness
+    global speed_wave
+    global lenght_wave
+
+    global rainbowswitch
+    global staticswitch
+    global inputswitch
+    global stresstestswitch
+    global timerswitch1
+
+    if speed_wave == 0:
+        rainbowswitch = False
+        speed_wave = 0.1
+    if(man):
+        speed_wave = float(input("speed"))
+        lenght_wave = int(input("lenght"))
+        inputswitch = True
     else:
-        pos -= 170
-        return Color(0, pos * 3, 255 - pos * 3)
+        rainbowswitch = True
+    i = 0
+    while rainbowswitch:
+        if i > lenght_wave:
+            i = i - lenght_wave
+        rainbow2(i, lenght_wave)
+        i = i + 0.1*speed_wave
 
-def rainbow(strip, wait_ms=20, iterations=1):
-    """Draw rainbow that fades across all pixels at once."""
-    for j in range(256*iterations):
-        for i in range(strip.numPixels()):
-            strip.setPixelColor(i, wheel((i+j) & 255))
-        strip.show()
-        time.sleep(wait_ms/1000.0)
+def glob():
+    global brightness
+    global speed_wave
+    global lenght_wave
 
-def rainbowCycle(strip, wait_ms=20, iterations=5):
-    """Draw rainbow that uniformly distributes itself across all pixels."""
-    for j in range(256*iterations):
-        for i in range(strip.numPixels()):
-            strip.setPixelColor(i, wheel((int(i * 256 / strip.numPixels()) + j) & 255))
-        strip.show()
-        time.sleep(wait_ms/1000.0)
+    global rainbowswitch
+    global staticswitch
+    global inputswitch
+    global stresstestswitch
+    global timerswitch1
 
-def theaterChaseRainbow(strip, wait_ms=50):
-    """Rainbow movie theater light style chaser animation."""
-    for j in range(256):
-        for q in range(3):
-            for i in range(0, strip.numPixels(), 3):
-                strip.setPixelColor(i+q, wheel((i+j) % 255))
-            strip.show()
-            time.sleep(wait_ms/1000.0)
-            for i in range(0, strip.numPixels(), 3):
-                strip.setPixelColor(i+q, 0)
+
+def setting():
+    global brightness
+    global speed_wave
+    global lenght_wave
+
+    global rainbowswitch
+    global staticswitch
+    global inputswitch
+    global stresstestswitch
+    global timerswitch1
+
+    try:
+         while True:
+             if rainbowswitch:
+                 wave(True)
+             elif staticswitch:
+                 staticinput()
+                 staticswitch = False
+                 inputswitch = True
+             elif stresstestswitch:
+                 stresstest()
+                 inputswitch = True
+             time.sleep(1)
+         print("Exiting control")
+    except KeyboardInterrupt:
+        if args.clear:
+            colorWipe(strip, Color(0,0,0), 10)
+
+
+def timer():
+    global brightness
+    global speed_wave
+    global lenght_wave
+
+    global rainbowswitch
+    global staticswitch
+    global inputswitch
+    global stresstestswitch
+    global timerswitch1
+
+    while True:
+        if(str(time.localtime()).find("tm_hour=3") != -1 and timerswitch1):
+            switch()
+            timerswitch = False
+            time.sleep(0.1)
+            wave(False)
+        time.sleep(20)
+
+def stresstest():
+    staticset(255, 255, 255)
+    time.sleep(1)
 
 # Main program logic follows:
 if __name__ == '__main__':
@@ -94,22 +271,16 @@ if __name__ == '__main__':
     if not args.clear:
         print('Use "-c" argument to clear LEDs on exit')
 
-    try:
+#    rainbow2(strip, 0, 50)
 
-        while True:
-            print ('Color wipe animations.')
-            colorWipe(strip, Color(255, 0, 0))  # Red wipe
-            colorWipe(strip, Color(0, 255, 0))  # Blue wipe
-            colorWipe(strip, Color(0, 0, 255))  # Green wipe
-            print ('Theater chase animations.')
-            theaterChase(strip, Color(127, 127, 127))  # White theater chase
-            theaterChase(strip, Color(127,   0,   0))  # Red theater chase
-            theaterChase(strip, Color(  0,   0, 127))  # Blue theater chase
-            print ('Rainbow animations.')
-            rainbow(strip)
-            rainbowCycle(strip)
-            theaterChaseRainbow(strip)
 
-    except KeyboardInterrupt:
-        if args.clear:
-            colorWipe(strip, Color(0,0,0), 10)
+    #framess()
+
+
+    thread1 = threading.Thread(target=setting)
+    thread2 = threading.Thread(target=operator)
+    thread3 = threading.Thread(target=timer)
+    thread1.start()
+    thread2.start()
+    thread3.start()
+    print("Exiting Main")
