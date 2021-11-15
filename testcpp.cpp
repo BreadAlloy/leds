@@ -1,20 +1,130 @@
 #include <vector>
 #include "simpleleds.h"
+#include <string>
+using namespace std;
+int led_count = 621;
 
+int desk[2] = {0, 187};
+int monitor[2] = {188, 220};
+int abovedesk[2] = {219, 312};
+int transmiter = 313;
+int flowers[2] = {314, 530};
+int bed[2] = {531, 620};
 
 uint32_t color(uint8_t r, uint8_t g, uint8_t b)
 {
   return r << 16 | g << 8 | b;
 }
+//c1 = constant, e = empty
+
+void ledsetall(std::vector<string>& ledsetting)
+    {
+    for (int i = 0; i < led_count; i++)
+    {
+        ledsetting[i] = "e";
+    }
+    for (int i = desk[0]; i <= desk[1]; i++)
+    {
+        ledsetting[i] = "c1";
+    }
+    for (int i = monitor[0]; i <= monitor[1]; i++)
+    {
+        ledsetting[i] = "c1";
+    }
+    for (int i = abovedesk[0]; i <= abovedesk[1]; i++)
+    {
+        ledsetting[i] = "c1";
+    }
+    for (int i = flowers[0]; i <= flowers[1]; i++)
+    {
+        ledsetting[i] = "c1";
+    }
+    for (int i = bed[0]; i <= bed[1]; i++)
+    {
+        ledsetting[i] = "c1";
+    }}
+
+int constant1();
+int constant2();
+int constant3();
+int constant4();
+int constant5();
+
+void ledcolorset(const std::vector<string>& ledsetting, std::vector<uint32_t>& ledcolor)
+    {
+    for(int i = 0; i < led_count; i++)
+        {
+        if(ledsetting[i] == "e")
+            {
+            
+            } else {
+            if(ledsetting[i] == "c1")
+                {
+                ledcolor[i] = constant1();
+                } else {
+                    if(ledsetting[i] == "c2")
+                    {
+                    ledcolor[i] = constant2();
+                    } else {
+                        if(ledsetting[i] == "c3")
+                        {
+                        ledcolor[i] = constant3();
+                        } else {
+                            if(ledsetting[i] == "c4")
+                            {
+                            ledcolor[i] = constant4();
+                            } else {
+                                if(ledsetting[i] == "c5")
+                                {
+                                ledcolor[i] = constant5();
+                                } else {
+
+        }}}}}}}
+    }
+
+int r = 0;
+int g = 100;
+int b = 0;
+
+int constant1()
+    {
+    return color(b ,g ,r);
+    }
+
+int constant2()
+    {
+    return color(0 ,100 ,0);
+    }
+
+int constant3()
+    {
+    return color(0, 0, 100);
+    }
+
+int constant4()
+    {
+    return color(50, 50, 50);
+    }
+
+int constant5()
+    {
+    return color(0, 0, 0);
+    }
 
 int main(int argc, char** argv)
 {
-  init_leds(400);
-  std::vector<uint32_t> ledy;
-  ledy.resize(400);
-  for (int i = 0; i < 400; i++) {
-    ledy[i] = color(i * 0.5, i, i * 0.2);
-  }
-  draw_leds(ledy.data());
+  init_leds(led_count);
+
+  std::vector<string> ledsetting;
+  ledsetting.resize(led_count);
+
+  std::vector<uint32_t> ledcolor;
+  ledcolor.resize(led_count);
+
+  ledsetall(ledsetting);
+  ledcolorset(ledsetting, ledcolor);
+
+  draw_leds(ledcolor.data());
+  sleep(1);
   fini_leds();
 }
