@@ -18,6 +18,7 @@ set(CMAKE_C_STANDARD 11)
 
 set(LIB_TARGET ws2811)
 set(TEST_TARGET test)
+set(TESTCPP_TARGET testcpp)
 
 set(LIB_PUBLIC_HEADERS
     ws2811.h
@@ -28,6 +29,7 @@ set(LIB_PUBLIC_HEADERS
     gpio.h
     mailbox.h
     pcm.h
+    simpleleds.h
 )
 
 set(LIB_SOURCES
@@ -37,10 +39,15 @@ set(LIB_SOURCES
     pcm.c
     dma.c
     rpihw.c
+    simpleleds.c
 )
 
 set(TEST_SOURCES
     main.c
+)
+
+set(TESTCPP_SOURCES
+    testcpp.cpp
 )
 
 include(GNUInstallDirs)
@@ -85,4 +92,6 @@ if(BUILD_TEST)
 
     add_executable(${TEST_TARGET} ${TEST_SOURCES})
     target_link_libraries(${TEST_TARGET} ${LIB_TARGET})
+    add_executable(${TESTCPP_TARGET} ${TESTCPP_SOURCES})
+    target_link_libraries(${TESTCPP_TARGET} ${LIB_TARGET})
 endif()
