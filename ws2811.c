@@ -49,6 +49,7 @@
 #include "pwm.h"
 #include "pcm.h"
 #include "rpihw.h"
+#include "assert.h"
 
 #include "ws2811.h"
 
@@ -130,6 +131,8 @@ static uint64_t get_microsecond_timestamp()
 
     return (uint64_t) t.tv_sec * 1000000 + t.tv_nsec / 1000;
 }
+
+void create_threebit_table();
 
 /**
  * Iterate through the channels and find the largest led count.
@@ -912,6 +915,9 @@ ws2811_return_t ws2811_init(ws2811_t *ws2811)
     memset(ws2811->device, 0, sizeof(*ws2811->device));
     device = ws2811->device;
 
+    ws2811->samples_tmp_count = 0;
+    ws2811->samples_tmp = NULL;
+
     if (check_hwver_and_gpionum(ws2811) < 0)
     {
         return WS2811_ERROR_ILLEGAL_GPIO;
@@ -1066,6 +1072,8 @@ ws2811_return_t ws2811_init(ws2811_t *ws2811)
         break;
     }
 
+    create_threebit_table();
+
     return WS2811_SUCCESS;
 }
 
@@ -1127,6 +1135,114 @@ ws2811_return_t ws2811_wait(ws2811_t *ws2811)
     return WS2811_SUCCESS;
 }
 
+static uint32_t tribit_normal[256];
+static uint32_t tribit_invert[256];
+void create_threebit_table()
+{
+    uint32_t val;
+    for (uint32_t v = 0; v < 256; v++)
+    {
+        // 111111110000000000000000
+        // 76543210fedcba9876543210
+        // ------------------------
+        // 100100100100100100100100;
+        //  ^  ^  ^  ^  ^  ^  ^  ^
+        //  7  6  5  4  3  2  1  0
+        val = 0x924924 |
+        ((v & 0x01) << 1) |
+        ((v & 0x02) << 3) |
+        ((v & 0x04) << 5) |
+        ((v & 0x08) << 7) |
+        ((v & 0x10) << 9) |
+        ((v & 0x20) << 11) |
+        ((v & 0x40) << 13) |
+        ((v & 0x80) << 15);
+	tribit_normal[v] = val;
+	tribit_invert[v] = val ^ 0xffffff;
+    }
+}
+
+int construct_protocol_bits(ws2811_t *ws2811, volatile void* output, int chan_idx)
+{
+  int driver_mode = ws2811->device->driver_mode;
+
+  ws2811_channel_t *channel = &ws2811->channel[chan_idx];
+  const int scale = (channel->brightness & 0xff) + 1;
+  uint8_t array_size = 3; // Assume 3 color LEDs, RGB
+
+  // If our shift mask includes the highest nibble, then we have 4 LEDs, RBGW.
+  if (channel->strip_type & SK6812_SHIFT_WMASK)
+  {
+    array_size = 4;
+  }
+  uint32_t samples_to_process = channel->count * array_size;
+  if (ws2811->samples_tmp_count < samples_to_process) {
+    free(ws2811->samples_tmp);
+    ws2811->samples_tmp = (uint8_t*)malloc(samples_to_process);
+    assert(ws2811->samples_tmp);
+    ws2811->samples_tmp_count = samples_to_process;
+  }
+  uint8_t* samples_tmp = ws2811->samples_tmp;
+
+  uint8_t* color_p = samples_tmp;
+  for (int i = 0; i < channel->count; i++) {
+    *(color_p++) = channel->gamma[(((channel->leds[i] >> channel->rshift) & 0xff) * scale) >> 8]; // red
+    *(color_p++) = channel->gamma[(((channel->leds[i] >> channel->gshift) & 0xff) * scale) >> 8]; // green
+    *(color_p++) = channel->gamma[(((channel->leds[i] >> channel->bshift) & 0xff) * scale) >> 8]; // blue
+    if (array_size == 4) {
+      *(color_p++) = channel->gamma[(((channel->leds[i] >> channel->wshift) & 0xff) * scale) >> 8]; // white
+    }
+  }
+  uint32_t* tribit_tab = &tribit_normal[0];
+  if ((driver_mode != PWM) && channel->invert) {
+    tribit_tab = &tribit_invert[0];
+  }
+
+  if (driver_mode == SPI) {
+    uint8_t* bits_to_send = (uint8_t*) output;
+    for (uint32_t i = 0; i < samples_to_process; i++) {
+      uint32_t val = tribit_tab[samples_tmp[i]];
+      *(bits_to_send++) = val >> 16;
+      *(bits_to_send++) = val >> 8;
+      *(bits_to_send++) = val;
+    }
+  } else {
+    assert(driver_mode == PWM || driver_mode == PCM);
+    uint32_t* bits_to_send = (uint32_t*) output + chan_idx;
+    uint32_t stride = (driver_mode == PWM ? 2 : 1);
+    for (uint32_t i = 0; i < samples_to_process; i += 4) {
+      uint32_t a, b, c, d;
+      if (i + 4 < samples_to_process) {
+	a = tribit_tab[samples_tmp[i]];
+	b = tribit_tab[samples_tmp[i+1]];
+	c = tribit_tab[samples_tmp[i+2]];
+	d = tribit_tab[samples_tmp[i+3]];
+      } else {
+	a = tribit_tab[samples_tmp[i]];
+	b = (i + 1 < samples_to_process) ? tribit_tab[samples_tmp[i+1]] : 0;
+	c = (i + 2 < samples_to_process) ? tribit_tab[samples_tmp[i+2]] : 0;
+	d = (i + 3 < samples_to_process) ? tribit_tab[samples_tmp[i+3]] : 0;
+      }
+      // each 8 bit value is transformed to 24 bit sequence
+      // a sample has bit sequence a2a1a0
+      // b sample has bit sequence b2b1b0
+      // c sample has bit sequence c2c1c0
+      // d sample has bit sequence d2d1d0
+      // word 0   word 1   word 2
+      // 33221100 33221100 33221100
+      // a2a1a0b2 b1b0c2c1 c0d2d1d0
+      //
+      // a<8|b>16 b<16|c>8 c<24|d
+      *bits_to_send = a<<8 | b>>16;
+      bits_to_send += stride;
+      *bits_to_send = b<<16 | c>>8;
+      bits_to_send += stride;
+      *bits_to_send = c<<24 | d;
+      bits_to_send += stride;
+    }
+  }
+  return 0;
+}
 /**
  * Render the DMA buffer from the user supplied LED arrays and start the DMA
  * controller.  This will update all LEDs on both PWM channels.
@@ -1137,24 +1253,15 @@ ws2811_return_t ws2811_wait(ws2811_t *ws2811)
  */
 ws2811_return_t  ws2811_render(ws2811_t *ws2811)
 {
-    volatile uint8_t *pxl_raw = ws2811->device->pxl_raw;
-    int driver_mode = ws2811->device->driver_mode;
-    int bitpos;
-    int i, k, l, chan;
-    unsigned j;
+    int chan;
     ws2811_return_t ret = WS2811_SUCCESS;
     uint32_t protocol_time = 0;
     static uint64_t previous_timestamp = 0;
-
-    bitpos = (driver_mode == SPI ? 7 : 31);
 
     for (chan = 0; chan < RPI_PWM_CHANNELS; chan++)         // Channel
     {
         ws2811_channel_t *channel = &ws2811->channel[chan];
 
-        int wordpos = chan; // PWM & PCM
-        int bytepos = 0;    // SPI
-        const int scale = (channel->brightness & 0xff) + 1;
         uint8_t array_size = 3; // Assume 3 color LEDs, RGB
 
         // If our shift mask includes the highest nibble, then we have 4 LEDs, RBGW.
@@ -1171,72 +1278,7 @@ ws2811_return_t  ws2811_render(ws2811_t *ws2811)
         {
             protocol_time = channel_protocol_time;
         }
-
-        for (i = 0; i < channel->count; i++)                // Led
-        {
-            uint8_t color[] =
-            {
-                channel->gamma[(((channel->leds[i] >> channel->rshift) & 0xff) * scale) >> 8], // red
-                channel->gamma[(((channel->leds[i] >> channel->gshift) & 0xff) * scale) >> 8], // green
-                channel->gamma[(((channel->leds[i] >> channel->bshift) & 0xff) * scale) >> 8], // blue
-                channel->gamma[(((channel->leds[i] >> channel->wshift) & 0xff) * scale) >> 8], // white
-            };
-
-            for (j = 0; j < array_size; j++)               // Color
-            {
-                for (k = 7; k >= 0; k--)                   // Bit
-                {
-                    // Inversion is handled by hardware for PWM, otherwise by software here
-                    uint8_t symbol = SYMBOL_LOW;
-                    if ((driver_mode != PWM) && channel->invert) symbol = SYMBOL_LOW_INV;
-
-                    if (color[j] & (1 << k))
-                    {
-                        symbol = SYMBOL_HIGH;
-                        if ((driver_mode != PWM) && channel->invert) symbol = SYMBOL_HIGH_INV;
-                    }
-
-                    for (l = 2; l >= 0; l--)               // Symbol
-                    {
-                        uint32_t *wordptr = &((uint32_t *)pxl_raw)[wordpos];   // PWM & PCM
-                        volatile uint8_t  *byteptr = &pxl_raw[bytepos];    // SPI
-
-                        if (driver_mode == SPI)
-                        {
-                            *byteptr &= ~(1 << bitpos);
-                            if (symbol & (1 << l))
-                            {
-                                *byteptr |= (1 << bitpos);
-                            }
-                        }
-                        else  // PWM & PCM
-                        {
-                            *wordptr &= ~(1 << bitpos);
-                            if (symbol & (1 << l))
-                            {
-                                *wordptr |= (1 << bitpos);
-                            }
-                        }
-
-                        bitpos--;
-                        if (bitpos < 0)
-                        {
-                            if (driver_mode == SPI)
-                            {
-                                bytepos++;
-                                bitpos = 7;
-                            }
-                            else  // PWM & PCM
-                            {
-                                // Every other word is on the same channel for PWM
-                                wordpos += (driver_mode == PWM ? 2 : 1);
-                                bitpos = 31;
-                            }
-                        }
-                    }
-                }
-            }
-        }
+	construct_protocol_bits(ws2811, ws2811->device->pxl_raw, chan);
     }
 
     // Wait for any previous DMA operation to complete.
