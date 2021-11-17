@@ -1,8 +1,11 @@
 #include <vector>
 #include "simpleleds.h"
 #include <string>
+#include <cmath>
 using namespace std;
+
 int led_count = 621;
+int brightness = 100;
 
 int desk[2] = {0, 187};
 int monitor[2] = {188, 220};
@@ -11,8 +14,13 @@ int transmiter = 313;
 int flowers[2] = {314, 530};
 int bed[2] = {531, 620};
 
-uint32_t color(uint8_t r, uint8_t g, uint8_t b)
+uint32_t color(uint8_t r, uint8_t g, uint8_t b, brightcorrect = false)
 {
+  if (brightcorrect){
+    r = round(r/1000 * brightness);
+    g = round(g/1000 * brightness);
+    b = round(b/1000 * brightness);
+    }
   return r << 16 | g << 8 | b;
 }
 //c1 = constant, e = empty
@@ -110,6 +118,31 @@ int constant5()
     {
     return color(0, 0, 0);
     }
+
+int linearspectrum(float point){
+  float mod = 0.333;
+  int col[3];
+  for(int i = 0; i <= 3; i++, point = point + 0.333){
+    if (point < 2 * mod){
+      col[i] = (-abs((point - 1) * mod) + 1)*1000;
+      }else{
+      col[i] = 0;
+  }}
+  return color(col[1] ,col[2] ,col[3], true);
+  }
+
+int parabolicspectrum(float point){
+  float mod = 0.333;
+  int col[3];
+  for(int i = 0; i <= 3; i++, point = point + 0.333){
+    if (point < 2 * mod){
+      col[i] = (pow((point - 1) * mod, 2) + 1)*1000;
+      }else{
+      col[i] = 0;
+  }}
+  return color(col[1] ,col[2] ,col[3], true);
+  }
+
 
 int main(int argc, char** argv)
 {
