@@ -123,6 +123,9 @@ int linearspectrum(float point){
   float mod = 0.333;
   int col[3];
   for(int i = 0; i <= 3; i++, point = point + 0.333){
+    if (point > 1){
+      point--;
+    }
     if (point < 2 * mod){
       col[i] = (-abs((point - 1) * mod) + 1)*1000;
       }else{
@@ -135,6 +138,9 @@ int parabolicspectrum(float point){
   float mod = 0.333;
   int col[3];
   for(int i = 0; i <= 3; i++, point = point + 0.333){
+    if (point > 1){
+      point--;
+    }
     if (point < 2 * mod){
       col[i] = (pow((point - 1) * mod, 2) + 1)*1000;
       }else{
@@ -143,6 +149,34 @@ int parabolicspectrum(float point){
   return color(col[1] ,col[2] ,col[3], true);
   }
 
+void everynled(int i, int n, string function, std::vector<string>& ledsetting, int phase = 0){
+  if(i %% n == phase){
+    ledsetting[i] = function;
+  }else{
+    ledsetting[i] = "e";
+}}
+
+previ = 0;
+float rainbowpoint = 0;
+int lenght = 100;
+int speed = 2;
+
+void rainbow(int i, float& rainbowpoint, std::vector<uint32_t>& ledcolor){
+  rainbowpoint = rainbowpoint + (i - previ)/lenght;
+  previ = i;
+  while (rainbowpoint > 1)
+    {
+    rainbowpoint--;
+    }
+  ledcolor[i] = parabolicspectrum(rainbowpoint);
+}
+
+void repeatingfuncs(int i; const std::vector<string>& ledsetting, std::vector<uint32_t>& ledcolor){
+  if (ledsetting[i] == "r1"){
+    rainbow(i, rainbowpoint, ledcolor);
+  }else{
+  
+}}
 
 int main(int argc, char** argv)
 {
