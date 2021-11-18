@@ -62,7 +62,7 @@ else()
     add_library(${LIB_TARGET} ${LIB_SOURCES})
 endif()
 
-target_link_libraries(${LIB_TARGET} m)
+target_link_libraries(${LIB_TARGET} m pthread)
 set_target_properties(${LIB_TARGET} PROPERTIES PUBLIC_HEADER "${LIB_PUBLIC_HEADERS}")
 
 install(TARGETS ${LIB_TARGET}
