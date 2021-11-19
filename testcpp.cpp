@@ -24,7 +24,7 @@ int speed = 100;
 float rainbowphase = 0;
 float colorphase = 0;
 
-float mod = 0.288;
+float specmod = 0.288;
 bool refreshstatics = true;
 
 std::vector<uint8_t> ledsetting;
@@ -42,21 +42,21 @@ uint32_t color(uint16_t r, uint16_t g, uint16_t b, bool brightcorrect = false)
   return r << 16 | g << 8 | b;
 }
 
-int spectrum(float point, power = 2){
+int spectrum(float point,float power = 2){
   int col[3];
   for(int i = 0; i <= 2; i++, point = point + 0.333){
     if (point > 1){
       point--;
     }
     if (point < 2 * specmod){
-      col[i] = round(-abs(pow((point/specmod - 1), power) + 1)*1000);
+      col[i] = round((-1 * ((point/specmod - 1) * (point/specmod - 1)) + 1)*1000);
       }else{
       col[i] = 0;
   }}
   return color(col[0], col[1], col[2], true);
   }
 
-void rainbow(float i){
+void rainbow(int i){
   rainbowpoint = rainbowpoint + (i - previ)/lenght;
   previ = i;
   while (rainbowpoint > 1)
@@ -68,22 +68,22 @@ void rainbow(float i){
 
 void colorcycle(int i){
   ledcolor[i] = spectrum(colorphase);
-  colorphase = colorphase + speed/100.;
   if (colorphase > lenght) {
     colorphase = colorphase - lenght;
   }
 }
 
-void repeatingfuncs (){
+void repeatingfuncs() {
 for(int i = 0; i < led_count; i++){
   if (ledsetting[i] == 21){
-    rainbow(i+rainbowphase);
+    rainbow(i);
   }else{
     if (ledsetting[i] == 31){
       colorcycle(i);
     }else{
-}}
-rainbowphase = rainbowphase + speed/(100.;
+}}}
+colorphase = colorphase + speed/100.;
+rainbowphase = rainbowphase + speed/100.;
 }
 
 void ledsetall()
@@ -138,7 +138,7 @@ for(int i = 0; i < led_count; i++){
         ledcolor[i] = constant(2);
         } else {
 
-    if(ledsetting[i] == 14 
+    if(ledsetting[i] == 14)
     {
     ledcolor[i] = constant(3);
     } else {
@@ -194,7 +194,7 @@ void ledresize(bool all = false, bool everyn = false)
       to = std::stoi(input("set to pixel"));
     }
     if (everyn){
-      n = std::stoi(input("one per));
+      n = std::stoi(input("one per"));
     }
 //////////////////////SETTINGS TABLE////////////////////
     cout << "xi-index, 0-empty, 1-static, 2-rainbow, 3-colorcycle" << endl;
@@ -264,8 +264,8 @@ void operating(){
     } else {
 
         if (op == "mod") {
-        mod = std::stoi(input("modify mod/1000"))/1000.;
-        cout << mod << endl;
+        specmod = std::stoi(input("modify mod/1000"))/1000.;
+        cout << specmod << endl;
         } else {
 
 }}}}}}}}}}
@@ -281,7 +281,7 @@ int main(int argc, char** argv)
 
 while (running)
   {
-  sleep(1);
+  sleep(0.01);
   ledcolorset();
   draw_leds(ledcolor.data());
   }
