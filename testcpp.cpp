@@ -22,11 +22,12 @@ float rainbowpoint = 0;
 int lenght = 100;
 int speed = 100;
 float rainbowphase = 0;
+float colorphase = 0;
 
+float mod = 0.288;
 bool refreshstatics = true;
 
-std::vector<string> ledsetting;
-
+std::vector<uint8_t> ledsetting;
 std::vector<uint32_t> ledcolor;
 
 bool running = true;
@@ -41,127 +42,124 @@ uint32_t color(uint16_t r, uint16_t g, uint16_t b, bool brightcorrect = false)
   return r << 16 | g << 8 | b;
 }
 
-int linearspectrum(float point){
-  float mod = 0.333;
+int spectrum(float point, power = 2){
   int col[3];
   for(int i = 0; i <= 2; i++, point = point + 0.333){
     if (point > 1){
       point--;
     }
-    if (point < 2 * mod){
-      col[i] = round((-abs((point - 1) * mod) + 1)*1000);
-      }else{
-      col[i] = 0;
-  }}
-  return color(255 ,192 ,192 , false);
-  }
-
-int parabolicspectrum(float point){
-  float mod = 0.288;
-  int col[3];
-  for(int i = 0; i <= 2; i++, point = point + 0.333){
-    if (point > 1){
-      point--;
-    }
-    if (point < 2 * mod){
-      col[i] = round((-1 * (point/mod - 1) * (point/mod - 1) + 1)*1000);
+    if (point < 2 * specmod){
+      col[i] = round(-abs(pow((point/specmod - 1), power) + 1)*1000);
       }else{
       col[i] = 0;
   }}
   return color(col[0], col[1], col[2], true);
   }
 
-void rainbow(float i, float& previ, int lenght, float& rainbowpoint, std::vector<uint32_t>& ledcolor){
+void rainbow(float i){
   rainbowpoint = rainbowpoint + (i - previ)/lenght;
   previ = i;
   while (rainbowpoint > 1)
     {
     rainbowpoint--;
     }
-  ledcolor[i] = parabolicspectrum(rainbowpoint);
+  ledcolor[i] = spectrum(rainbowpoint);
 }
 
-void repeatingfuncs(const std::vector<string>& ledsetting, std::vector<uint32_t>& ledcolor, float& rainbowphase){
-for(int i = 0; i < led_count; i++){
-  if (ledsetting[i] == "r1"){
-    rainbow(i+rainbowphase, previ, lenght, rainbowpoint, ledcolor);
-  }else{
-}}
-cout << rainbowphase << endl;
-rainbowphase = rainbowphase + speed/100.;
-if (rainbowphase > lenght) {
-  rainbowphase = rainbowphase - lenght;
-cout << rainbowphase << endl;
-}}
-//c1 = constant, e = empty
+void colorcycle(int i){
+  ledcolor[i] = spectrum(colorphase);
+  colorphase = colorphase + speed/100.;
+  if (colorphase > lenght) {
+    colorphase = colorphase - lenght;
+  }
+}
 
-void ledsetall(std::vector<string>& ledsetting)
+void repeatingfuncs (){
+for(int i = 0; i < led_count; i++){
+  if (ledsetting[i] == 21){
+    rainbow(i+rainbowphase);
+  }else{
+    if (ledsetting[i] == 31){
+      colorcycle(i);
+    }else{
+}}
+rainbowphase = rainbowphase + speed/(100.;
+}
+
+void ledsetall()
     {
     for (int i = 0; i < led_count; i++)
     {
-        ledsetting[i] = "e";
+        ledsetting[i] = 0;
     }
     for (int i = desk[0]; i <= desk[1]; i++)
     {
-        ledsetting[i] = "r1";
+        ledsetting[i] = 21;
     }
     for (int i = monitor[0]; i <= monitor[1]; i++)
     {
-        ledsetting[i] = "r1";
+        ledsetting[i] = 21;
     }
     for (int i = abovedesk[0]; i <= abovedesk[1]; i++)
     {
-        ledsetting[i] = "r1";
+        ledsetting[i] = 21;
     }
     for (int i = flowers[0]; i <= flowers[1]; i++)
     {
-        ledsetting[i] = "r1";
+        ledsetting[i] = 21;
     }
     for (int i = bed[0]; i <= bed[1]; i++)
     {
-        ledsetting[i] = "r1";
+        ledsetting[i] = 21;
     }}
 
 int constant(int);
 
-void onetimefuncs(const std::vector<string>& ledsetting, std::vector<uint32_t>& ledcolor){
+void onetimefuncs(){
 for(int i = 0; i < led_count; i++){
-  if(ledsetting[i] == "e")
+
+    if(ledsetting[i] == 0)
     {
-      ledcolor[i] = 0;
+    ledcolor[i] = 0;
     } else {
-    if(ledsetting[i] == "c1")
-      {
-        ledcolor[i] = constant(0);
-      } else {
-      if(ledsetting[i] == "c2")
+
+        if(ledsetting[i] == 11)
         {
-          ledcolor[i] = constant(1);
+        ledcolor[i] = constant(0);
         } else {
-        if(ledsetting[i] == "c3")
-          {
-            ledcolor[i] = constant(2);
-          } else {
-          if(ledsetting[i] == "c4")
-            {
-              ledcolor[i] = constant(3);
-            } else {
-            if(ledsetting[i] == "c5")
-              {
-                ledcolor[i] = constant(4);
-              } else {
-        }}}}}}}}
+
+    if(ledsetting[i] == 12)
+    {
+    ledcolor[i] = constant(1);
+    } else {
+
+        if(ledsetting[i] == 13)
+        {
+        ledcolor[i] = constant(2);
+        } else {
+
+    if(ledsetting[i] == 14 
+    {
+    ledcolor[i] = constant(3);
+    } else {
+
+        if(ledsetting[i] == 15)
+        {
+        ledcolor[i] = constant(4);
+        } else {
+
+}}}}}}}}
 
 
-void ledcolorset(const std::vector<string>& ledsetting, std::vector<uint32_t>& ledcolor)
+void ledcolorset()
   {
   previ = -1;
-  rainbowpoint = 0;
+  rainbowpoint = rainbowphase/lenght;
     if(refreshstatics){
-      onetimefuncs(ledsetting ,ledcolor);
+      onetimefuncs();
       refreshstatics = false;
     }
-    repeatingfuncs(ledsetting ,ledcolor, rainbowphase);
+    repeatingfuncs();
 }
 
 ////////////////////////
@@ -182,22 +180,36 @@ string input(const string& com)
     return in;
     }
 
-void ledresize(std::vector<string>& ledsetting)
+void ledresize(bool all = false, bool everyn = false)
     {
     int from;
     int to;
-    string setting;
-    from = std::stoi(input("set form pixel"));
-    to = std::stoi(input("set to pixel"));
-    cout << "settings" << endl;
-    setting = input("chose setting");
-        for(int i = from; i <= to; i++)
+    int setting;
+    int n = 1;
+    if(all){
+      from = 0;
+      to = led_count;
+    } else {
+      from = std::stoi(input("set form pixel"));
+      to = std::stoi(input("set to pixel"));
+    }
+    if (everyn){
+      n = std::stoi(input("one per));
+    }
+//////////////////////SETTINGS TABLE////////////////////
+    cout << "xi-index, 0-empty, 1-static, 2-rainbow, 3-colorcycle" << endl;
+//////////////////////SETTINGS TABLE////////////////////
+
+    setting = std::stoi(input("chose setting"));
+        for(int i = from; i < to; i++)
         {
-        ledsetting[i] = setting;
+            if (i % n == 0) {
+                ledsetting[i] = setting;
+            }
         }
     }
 
-void off(std::vector<uint32_t>& ledcolor){
+void off(){
 //for(int j = 0; j < 255; j++){
    for(int i = 0; i < led_count; i++){
       ledcolor[i] = 0;
@@ -210,30 +222,53 @@ void operating(){
     string op;
     while (running) {
     op = input("Operation");
+
     if (op == "resize"){
-    ledresize(ledsetting);
+    ledresize();
     refreshstatics = true;
     } else {
-    if (op == "b") {
-    brightness = std::stoi(input("Brightness"));
-    } else {
+
+        if (op == "b") {
+        brightness = std::stoi(input("Brightness"));
+        cout << brightness << endl;
+        refreshstatics = true;
+        } else {
+
     if (op == "rainbow") {
     lenght = std::stoi(input("lenght"));
     speed = std::stoi(input("speed"));
     } else {
-    if (op == "off") {
-    sleep(std::stoi(input("delay(min)")) * 60);
-    running = false;
-    off(ledcolor);
-    } else {
-    }}}}}}
 
-void everynled(int i, int n, string function, std::vector<string>& ledsetting, int phase = 0){
-  if(i % n == phase){
-    ledsetting[i] = function;
-  }else{
-    ledsetting[i] = "e";
-}}
+        if (op == "off") {
+        sleep(std::stoi(input("delay(min)")) * 60);
+        running = false;
+        off();
+        } else {
+
+    if (op == "resizeall") {
+    ledresize(true);
+    refreshstatics = true;
+    } else {
+
+        if (op == "static") {
+        int n = std::stoi(input("index"));
+        r[n] = std::stoi(input("red"));
+        g[n] = std::stoi(input("green"));
+        b[n] = std::stoi(input("blue"));
+        refreshstatics = true;
+        } else {
+
+    if (op == "resizeeveryn") {
+    ledresize(true, true);
+    refreshstatics = true;
+    } else {
+
+        if (op == "mod") {
+        mod = std::stoi(input("modify mod/1000"))/1000.;
+        cout << mod << endl;
+        } else {
+
+}}}}}}}}}}
 
 int main(int argc, char** argv)
 {
@@ -242,12 +277,12 @@ int main(int argc, char** argv)
   ledcolor.resize(led_count);
 
   std::thread thread1(operating);
-  ledsetall(ledsetting);
+  ledsetall();
 
 while (running)
   {
   sleep(1);
-  ledcolorset(ledsetting, ledcolor);
+  ledcolorset();
   draw_leds(ledcolor.data());
   }
 
