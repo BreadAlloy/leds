@@ -22,13 +22,14 @@ float previ = 0;
 float rainbowpoint = 0;
 int lenght = 100;
 int speed = 20;
-float rainbowphase = 0;
-float colorphase = 0;
+int rainbowphase = 0;
+int colorphase = 0;
 
 int slowness = 10;
 int defaultsetting = 21;
 int onbrightness = 0;
 int startbrightness = 3;
+int colorcyclecolor = 0;
 
 int offdelay = 0;
 
@@ -44,6 +45,7 @@ int perbfps = 1000;
 std::vector<uint8_t> ledsetting;
 std::vector<uint32_t> ledcolor;
 std::vector<std::vector<uint8_t>> ledrgb;
+std::vector<std::vector<uint8_t>> ledrainbow;
 
 void ledsetall()
     {
@@ -91,6 +93,17 @@ int constant(int i)
     {
     return color(b[i] ,g[i] ,r[i] ,true);
     }
+
+void getspectrum() {
+  float point = 0;
+  for(int i = 0; i < led_count * 20; i++) {
+    point = point + i/(20*lenght);
+    if(point > 1) point--;
+    ledrainbow[i][0] = spectrum(point);
+    ledrainbow[i][1] = spectrum(point+0.333);
+    ledrainbow[i][2] = spectrum(point+0.666);
+}}
+
 
 void getrgb(){
   for (int i = 0; i < led_count; i++) {
@@ -181,33 +194,27 @@ void on() {
 }
 
 int spectrum(float point,float power = 2){
-  int col[3];
-  for(int i = 0; i <= 2; i++, point = point + 0.333){
     if (point > 1){
       point--;
-    }
     if (point < 2 * specmod){
-      col[i] = round((-1 * ((point/specmod - 1) * (point/specmod - 1)) + 1)*255);
+      return round((-1 * ((point/specmod - 1) * (point/specmod - 1)) + 1)*255);
       }else{
-      col[i] = 0;
+      return = 0;
   }}
-  return color(col[0], col[1], col[2], true);
-  }
 
 void rainbow(int i){
   rainbowpoint = rainbowpoint + (i - previ)/lenght;
   previ = i;
-  while (rainbowpoint > 1)
-    {
-    rainbowpoint--;
+  while (rainbowpoint > 20 * lenght){
+    rainbowpoint = rainbowpoint - lenght * 20;
     }
   ledcolor[i] = spectrum(rainbowpoint);
 }
 
 void colorcycle(int i){
-  ledcolor[i] = spectrum(colorphase);
-  if (colorphase > 1) {
-    colorphase = colorphase - 1;
+  ledcolor[i] = color(ledrainbow[i*20+rainbowphase][0], ledrainbow[i*20+rainbowphase][1], ledrainbow[i*20+rainbowphase][2], true);
+  if (colorphase > lenght * 20) {
+    colorphase = colorphase - lenght * 20;
   }
 }
 
@@ -242,8 +249,9 @@ for(int i = 0; i < led_count; i++){
 
 
 }}}}
-colorphase = colorphase + speed/1000.;
-rainbowphase = rainbowphase + speed/100.;
+colorphase = colorphase + speed;
+rainbowphase = rainbowphase + speed;
+colorcyclecolor = color(ledrainbow[colorphase][0], ledrainbow[colorphase][1], ledrainbow[colorphase][2]);
 }
 
 void onetimefuncs(){
@@ -381,6 +389,11 @@ int main(int argc, char** argv)
   init_leds(led_count);
   ledsetting.resize(led_count);
   ledcolor.resize(led_count);
+
+  ledrainbow.resize(led_count * 20);
+  for (int i = 0; i < led_count * 20; i++){
+  ledrgb[i].resize(3); }
+
 
   ledrgb.resize(led_count);
   for (int i = 0; i < led_count; i++){
