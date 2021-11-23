@@ -1257,6 +1257,7 @@ ws2811_return_t  ws2811_render(ws2811_t *ws2811)
     ws2811_return_t ret = WS2811_SUCCESS;
     uint32_t protocol_time = 0;
     static uint64_t previous_timestamp = 0;
+    int driver_mode = ws2811->device->driver_mode;
 
     for (chan = 0; chan < RPI_PWM_CHANNELS; chan++)         // Channel
     {
