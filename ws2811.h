@@ -91,6 +91,8 @@ typedef struct ws2811_t
     uint32_t freq;                               //< Required output frequency
     int dmanum;                                  //< DMA number _not_ already in use
     ws2811_channel_t channel[RPI_PWM_CHANNELS];
+    uint8_t* samples_tmp;                        //< buffer for colors to signal transform
+    uint32_t samples_tmp_count;                  //< currently allocated tmp buffer
 } ws2811_t;
 
 #define WS2811_RETURN_STATES(X)                                                             \

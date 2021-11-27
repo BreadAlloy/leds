@@ -1,23 +1,19 @@
 cmake_minimum_required(VERSION 3.0.0)
 
 # read and parse version file
-file(READ version PROJECT_VERSION)
-string(STRIP ${PROJECT_VERSION} PROJECT_VERSION)
-string(REGEX REPLACE "([0-9]+)\\.[0-9]+\\.[0-9]+" "\\1" VERSION_MAJOR ${PROJECT_VERSION})
-string(REGEX REPLACE "[0-9]+\\.([0-9]+)\\.[0-9]+" "\\1" VERSION_MINOR ${PROJECT_VERSION})
-string(REGEX REPLACE "[0-9]+\\.[0-9]+\\.([0-9]+)" "\\1" VERSION_MICRO ${PROJECT_VERSION})
 
-set(HEADERDEF "${VERSION_MAJOR}_${VERSION_MINOR}_${VERSION_MICRO}")
-
-project(rpi_ws281x VERSION ${PROJECT_VERSION})
+project(rpi_ws281x VERSION "1.1.0")
 
 option(BUILD_SHARED "Build as shared library" OFF)
 option(BUILD_TEST "Build test application" ON)
+
+SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -g -O3 -Wall")
 
 set(CMAKE_C_STANDARD 11)
 
 set(LIB_TARGET ws2811)
 set(TEST_TARGET test)
+set(TESTCPP_TARGET testcpp)
 
 set(LIB_PUBLIC_HEADERS
     ws2811.h
@@ -28,6 +24,7 @@ set(LIB_PUBLIC_HEADERS
     gpio.h
     mailbox.h
     pcm.h
+    simpleleds.h
 )
 
 set(LIB_SOURCES
@@ -37,15 +34,18 @@ set(LIB_SOURCES
     pcm.c
     dma.c
     rpihw.c
+    simpleleds.c
 )
 
 set(TEST_SOURCES
     main.c
 )
 
-include(GNUInstallDirs)
+set(TESTCPP_SOURCES
+    testcpp.cpp
+)
 
-configure_file(version.h.in version.h)
+include(GNUInstallDirs)
 
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/pkg-config.pc.in"
@@ -62,7 +62,7 @@ else()
     add_library(${LIB_TARGET} ${LIB_SOURCES})
 endif()
 
-target_link_libraries(${LIB_TARGET} m)
+target_link_libraries(${LIB_TARGET} m pthread)
 set_target_properties(${LIB_TARGET} PROPERTIES PUBLIC_HEADER "${LIB_PUBLIC_HEADERS}")
 
 install(TARGETS ${LIB_TARGET}
@@ -85,4 +85,6 @@ if(BUILD_TEST)
 
     add_executable(${TEST_TARGET} ${TEST_SOURCES})
     target_link_libraries(${TEST_TARGET} ${LIB_TARGET})
+    add_executable(${TESTCPP_TARGET} ${TESTCPP_SOURCES})
+    target_link_libraries(${TESTCPP_TARGET} ${LIB_TARGET})
 endif()
