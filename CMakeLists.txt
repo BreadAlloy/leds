@@ -7,7 +7,8 @@ project(rpi_ws281x VERSION "1.1.0")
 option(BUILD_SHARED "Build as shared library" OFF)
 option(BUILD_TEST "Build test application" ON)
 
-SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -g -O3 -Wall")
+#SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -g -O3 -Wall")
+SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -g -Og --no-omit-frame-pointer -Wall")
 
 set(CMAKE_C_STANDARD 11)
 

@@ -5,6 +5,15 @@
 #include <thread>
 #include <iostream>
 #include <chrono>
+#include <sys/time.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <stdlib.h>
+#include <netinet/in.h>
+#include <string.h>
+
+#define PORT 8080
 
 using namespace std;
 
@@ -18,10 +27,9 @@ int transmiter = 313;
 int flowers[2] = {314, 530};
 int bed[2] = {531, 620};
 
-float previ = 0;
-float rainbowpoint = 0;
+int rainbowpoint = 0;
 int lenght = 100;
-int speed = 20;
+int speed = 2;
 int rainbowphase = 0;
 int colorphase = 0;
 
@@ -42,10 +50,25 @@ bool running = true;
 int bfps = 1;
 int perbfps = 1000;
 
+int server_fd, new_socket, valread;
+struct sockaddr_in address;
+int opt = 1;
+int addrlen = sizeof(address);
+char buffer[1024] = {0};
+//char *hello = "Hello from server";
+
+bool remotecontrol = false;
+
 std::vector<uint8_t> ledsetting;
 std::vector<uint32_t> ledcolor;
 std::vector<std::vector<uint8_t>> ledrgb;
-std::vector<std::vector<uint8_t>> ledrainbow;
+std::vector<std::vector<uint16_t>> ledrainbow;
+
+double now() {
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return tv.tv_sec + tv.tv_usec/1000000.;
+}
 
 void ledsetall()
     {
@@ -94,16 +117,24 @@ int constant(int i)
     return color(b[i] ,g[i] ,r[i] ,true);
     }
 
-void getspectrum() {
-  float point = 0;
-  for(int i = 0; i < led_count * 20; i++) {
-    point = point + i/(20*lenght);
-    if(point > 1) point--;
-    ledrainbow[i][0] = spectrum(point);
-    ledrainbow[i][1] = spectrum(point+0.333);
-    ledrainbow[i][2] = spectrum(point+0.666);
-}}
+int spectrum(float point,float power = 2){
+    if (point > 1) {
+      point--; }
+    if (point < 2 * specmod){
+      return round((-1 * ((point/specmod - 1) * (point/specmod - 1)) + 1)*255);
+    }else{
+      return 0;
+  }}
 
+void getspectrum() {
+  double point = 0;
+  for(int i = 0; i < led_count * 20; i++) {
+    point = point + 1./(20*lenght);
+     if(point > 1) {point--;}
+    ledrainbow[i][0] = spectrum(point);
+    ledrainbow[i][1] = spectrum(point+0.3333);
+    ledrainbow[i][2] = spectrum(point+0.6666);
+}}
 
 void getrgb(){
   for (int i = 0; i < led_count; i++) {
@@ -137,6 +168,47 @@ string input(const string& com)
     return in;
     }
 
+void ConnStart() {
+    // Creating socket file descriptor
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+    {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+       
+    // Forcefully attaching socket to the port 8080
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
+                                                  &opt, sizeof(opt)))
+    {
+        perror("setsockopt");
+        exit(EXIT_FAILURE);
+    }
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons( PORT );
+       
+    // Forcefully attaching socket to the port 8080
+    if (bind(server_fd, (struct sockaddr *)&address, 
+                                  sizeof(address))<0)
+    {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void Connection() {
+    if (listen(server_fd, 3) < 0)
+    {
+        perror("listen");
+        exit(EXIT_FAILURE);
+    }
+    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, 
+                       (socklen_t*)&addrlen))<0)
+    {
+        perror("accept");
+        exit(EXIT_FAILURE);
+    }
+}
 void ledresize(bool all = false, bool everyn = false, int setting = 0)
     {
     int from;
@@ -166,14 +238,19 @@ void ledresize(bool all = false, bool everyn = false, int setting = 0)
         }
     }
 
-void off(int i){
+void off(){
+  sleeping = true;
+  for(int r = 0; r < 255; r++) {
+  for(int i = 0; i < led_count; i++) {
   for (int j = 0; j < 3; j++){
      if (ledrgb[i][j] - 1 >= 0){
         ledrgb[i][j]--;
      }
-  }
-  ledcolor[i] = color(ledrgb[i][2], ledrgb[i][1], ledrgb[i][0]);
-}
+     ledcolor[i] = color(ledrgb[i][2], ledrgb[i][1], ledrgb[i][0]);
+  }}
+  sleep(0.5);
+  draw_leds(ledcolor.data());
+}}
 
 void on() {
     ledresize(true, false, defaultsetting);
@@ -193,26 +270,16 @@ void on() {
     }
 }
 
-int spectrum(float point,float power = 2){
-    if (point > 1){
-      point--;
-    if (point < 2 * specmod){
-      return round((-1 * ((point/specmod - 1) * (point/specmod - 1)) + 1)*255);
-      }else{
-      return = 0;
-  }}
-
 void rainbow(int i){
-  rainbowpoint = rainbowpoint + (i - previ)/lenght;
-  previ = i;
-  while (rainbowpoint > 20 * lenght){
+  rainbowpoint = i*20+rainbowphase;
+  if (rainbowpoint > 20 * lenght){
     rainbowpoint = rainbowpoint - lenght * 20;
     }
-  ledcolor[i] = spectrum(rainbowpoint);
+  ledcolor[i] = color(ledrainbow[rainbowpoint][0], ledrainbow[rainbowpoint][1], ledrainbow[rainbowpoint][2], true);
 }
 
 void colorcycle(int i){
-  ledcolor[i] = color(ledrainbow[i*20+rainbowphase][0], ledrainbow[i*20+rainbowphase][1], ledrainbow[i*20+rainbowphase][2], true);
+  ledcolor[i] = colorcyclecolor;
   if (colorphase > lenght * 20) {
     colorphase = colorphase - lenght * 20;
   }
@@ -224,15 +291,14 @@ void timer(){
   sleep(wait);
   onbrightness = brightness;
   brightness = startbrightness;
+  sleeping = false;
   turningon = true;
 }
 
 void repeatingfuncs() {
 if (turningon) {
-  sleeping = false;
   on();
 }
-
 for(int i = 0; i < led_count; i++){
 
     if (ledsetting[i] == 21){
@@ -244,14 +310,17 @@ for(int i = 0; i < led_count; i++){
         }else{
 
     if (ledsetting[i] == 41){
-    off(i);
+    off();
     }else{
 
 
 }}}}
 colorphase = colorphase + speed;
+if (colorphase > 20 * lenght) {colorphase = colorphase - 20 * lenght;}
 rainbowphase = rainbowphase + speed;
-colorcyclecolor = color(ledrainbow[colorphase][0], ledrainbow[colorphase][1], ledrainbow[colorphase][2]);
+if (rainbowphase > 20 * lenght) {rainbowphase = rainbowphase - 20 * lenght;}
+colorcyclecolor = color(ledrainbow[colorphase][0], ledrainbow[colorphase][1], ledrainbow[colorphase][2], true);
+rainbowpoint = 0;
 }
 
 void onetimefuncs(){
@@ -291,14 +360,12 @@ for(int i = 0; i < led_count; i++){
 
 void ledcolorset() {
   if (sleeping) {
-  sleep(10);
-    } else {
+    sleep(10);
+  } else {
     if (refreshstatics) {
       onetimefuncs();
       refreshstatics = false;
     }
-  previ = -1;
-  rainbowpoint = rainbowphase/lenght;
   repeatingfuncs();
 }}
 
@@ -320,6 +387,8 @@ void operating(){
 
     if (op == "rainbow") {
     lenght = std::stoi(input("lenght"));
+    cout << lenght << endl;
+    getspectrum();
     } else {
 
         if (op == "off") {
@@ -349,6 +418,7 @@ void operating(){
         if (op == "mod") {
         specmod = std::stoi(input("modify mod/1000"))/1000.;
         cout << specmod << endl;
+        getspectrum();
         } else {
 
     if (op == "slowness") {
@@ -362,6 +432,7 @@ void operating(){
 
     if (op == "speed") {
     speed = std::stoi(input("speed"));
+    getspectrum();
     } else {
 
         if (op == "on") {
@@ -370,41 +441,89 @@ void operating(){
         ledresize(true, false, defaultsetting);
         } else {
 
-    if (op == "test") {
-    int test = secondsto(50,34,16);
-    sleep(test);
-    turningon = true;
+    if (op == "sleep") {
+    sleeping = true;
     } else {
 
         if (op == "timeron") {
         timer();
         } else {
 
-}}} }}} }}} }}} }}
+    if (op == "remoteoff") {
+    remotecontrol = false;
+    close(new_socket);
+    } else {
+
+}}} }}} }}} }}} }}}
     ledsetting[transmiter] = 0;
 }}
 
+void reciever() {
+  ConnStart();
+  char op[1024] = {0};
+  while(running) {
+    if (remotecontrol) {
+    valread = recv(new_socket, op, 1024, 0);
+    cout << op << endl;
+
+    if (op[0] == 's') {
+    remotecontrol = false;
+    close(new_socket);
+    } else {
+
+    if (op[0] == 'd') {
+    int coltemp[3];
+    coltemp[0] = *(uint32_t*)(&op[1]);
+    coltemp[1] = *(uint32_t*)(&op[2]);
+    coltemp[2] = *(uint32_t*)(&op[3]);
+    coltemp[0] = color(coltemp[0], coltemp[1], coltemp[2]);
+    for (int i = 0; i<led_count; i++) {
+    ledcolor[i] = coltemp[0]; }
+    } else {
+
+    if (op[0] == 'R') {
+    ledresize(true, false, -1);
+    } else {
+
+    if (op[0] == 'A') {
+    ledresize(true, false, defaultsetting);
+    } else {
+
+}}}}
+  } else {
+  Connection();
+  remotecontrol = true;
+}}}
+
 int main(int argc, char** argv)
 {
+//  valread = read( new_socket , buffer, 1024);
+//  printf("%s\n",buffer );
+//  send(new_socket , hello , strlen(hello) , 0 );
+//  printf("Hello message sent\n");
+
   init_leds(led_count);
   ledsetting.resize(led_count);
   ledcolor.resize(led_count);
 
   ledrainbow.resize(led_count * 20);
   for (int i = 0; i < led_count * 20; i++){
-  ledrgb[i].resize(3); }
+    ledrainbow[i].resize(3); }
 
 
   ledrgb.resize(led_count);
   for (int i = 0; i < led_count; i++){
-  ledrgb[i].resize(3); }
+    ledrgb[i].resize(3); }
 
-  std::thread thread1(operating);
+  //Connection();
   ledsetall();
+  getspectrum();
+  std::thread thread1(reciever);
+  std::thread thread2(operating);
+
 
 while (running)
   {
-  sleep(slowness/1000.);
   ledcolorset();
   draw_leds(ledcolor.data());
   }
