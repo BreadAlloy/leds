@@ -12,6 +12,9 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <linux/input.h>
 
 #define PORT 8080
 
@@ -21,17 +24,20 @@ int led_count = 621;
 int brightness = 100;
 
 int desk[2] = {0, 187};
-int monitor[2] = {188, 220};
-int abovedesk[2] = {219, 312};
+int monitor[2] = {188, 219};
+int abovedesk[2] = {220, 313};
 int transmiter = 313;
-int flowers[2] = {314, 530};
-int bed[2] = {531, 620};
+int flowers[2] = {314, 531};
+int bed[2] = {531, 621};
 
 int rainbowpoint = 0;
-int lenght = 100;
+int lenght = 50;
 int speed = 2;
 int rainbowphase = 0;
 int colorphase = 0;
+
+struct thread thread3;
+struct thread thread4;
 
 int slowness = 10;
 int defaultsetting = 21;
@@ -63,6 +69,7 @@ std::vector<uint8_t> ledsetting;
 std::vector<uint32_t> ledcolor;
 std::vector<std::vector<uint8_t>> ledrgb;
 std::vector<std::vector<uint16_t>> ledrainbow;
+std::vector<uint32_t> remoteled;
 
 double now() {
   struct timeval tv;
@@ -101,16 +108,16 @@ uint32_t color(uint16_t r, uint16_t g, uint16_t b, bool brightcorrect = false)
 {
   if (brightcorrect){
     r = round(r/255. * brightness);
-    g = round(g/255. * brightness);
     b = round(b/255. * brightness);
+    g = round(g/255. * brightness);
     }
   return r << 16 | g << 8 | b;
 }
 
 ////////////////////////
-int r[5] = {0,0,40,1,0};
-int g[5] = {100,50,40,1,1};
-int b[5] = {0,0,40,1,0};
+int r[5] = {0,0,255,1,0};
+int g[5] = {255,255,255,1,1};
+int b[5] = {0,0,255,1,0};
 
 int constant(int i)
     {
@@ -158,6 +165,10 @@ uint32_t secondsto(int sec = 0, int min = 0, int hour = 0, int days = 0){
   if (sec < 0) {
     sec = sec + 60; }
   return (hour+days*24)*3600+min*60+sec;
+}
+
+int chartoint(char ch){
+  return (unsigned char)ch;
 }
 
 string input(const string& com)
@@ -209,39 +220,31 @@ void Connection() {
         exit(EXIT_FAILURE);
     }
 }
-void ledresize(bool all = false, bool everyn = false, int setting = 0)
+void ledresize(bool manual, int setting = defaultsetting, int from = 0, int to = led_count, int n = 1)
     {
-    int from;
-    int to;
-    int n = 1;
-    if(all){
-      from = 0;
-      to = led_count;
-    } else {
+    if(manual){
       from = std::stoi(input("set form pixel"));
       to = std::stoi(input("set to pixel"));
-    }
-    if (everyn){
       n = std::stoi(input("one per"));
-    }
-    if(setting == 0){
 //////////////////////SETTINGS TABLE////////////////////
-       cout << "xi-index, 0-empty, 1-static, 2-rainbow, 3-colorcycle, 4-off" << endl;
+      cout << "xi-index, 0-empty, 1-static, 2-rainbow, 3-colorcycle, 4-off" << endl;
 //////////////////////SETTINGS TABLE////////////////////
-       setting = std::stoi(input("chose setting"));
+      setting = std::stoi(input("chose setting"));
     }
         for(int i = from; i < to; i++)
         {
             if (i % n == 0) {
                 ledsetting[i] = setting;
-            }
-        }
+            } else {
+                ledsetting[i] = 0;
+        }}
+    refreshstatics = true;
     }
 
-void off(){
-  sleeping = true;
-  for(int r = 0; r < 255; r++) {
-  for(int i = 0; i < led_count; i++) {
+void indivde() {
+  getrgb();
+  for (int r = 0; r < brightness + 1; r++) {
+  for (int i = 0; i < led_count; i++) {
   for (int j = 0; j < 3; j++){
      if (ledrgb[i][j] - 1 >= 0){
         ledrgb[i][j]--;
@@ -252,22 +255,73 @@ void off(){
   draw_leds(ledcolor.data());
 }}
 
-void on() {
-    ledresize(true, false, defaultsetting);
-    sleeping = false;
-    if (perbfps - bfps == 0) {
-        if (onbrightness - brightness > 0) {
-            bfps = 1;
-            brightness++;
-            refreshstatics = true;
-        } else {
-            bfps = 1;
-            turningon = false;
-            cout << "Is on" << endl;
-        }
-    } else {
-        bfps++;
-    }
+void allempty() {
+  for(int i = 0; i < led_count; i++) {
+    ledcolor[i] = color(0, 0, 0);
+}}
+
+void onebyone() {
+  for(int i = 0; i < led_count; i++) {
+    ledcolor[i] = color(0, 0, 0);
+    draw_leds(ledcolor.data());
+    sleep(0.5);
+}}
+
+void off(int delay = 0, bool night = false, int offanim = 0){
+  sleep(60*delay);
+  if(!sleeping) {
+  sleeping = true;
+  usleep(500);
+  if(offanim == 0) {
+    allempty();
+  } else {
+
+  if(offanim == 1) {
+    indivde();
+  } else {
+
+  if(offanim == 2) {
+    onebyone();
+  } else {
+
+  allempty();
+}}}
+  cout << "Is asleep" << endl;
+}
+
+if(night) {
+  for(int i = 0; i < led_count; i = i + 2) {
+    ledcolor[i] = color(0, 1, 0);
+}}
+draw_leds(ledcolor.data());
+}
+
+void on1() {
+  std::vector<uint8_t> temp = ledsetting;
+  ledresize(false, 0, 0, led_count);
+  sleeping = false;
+  for(int i = 0; i < led_count; i++) {
+    ledsetting[i] = temp[i];
+    sleep(0.24);
+  }
+}
+
+void on(bool now = true, int hour = 0, int minute = 0, int onanim = 0, int b = brightness) {
+  cout << "Timer on" << endl;
+  if(!now) {
+    sleep(secondsto(0, minute, hour));
+  }
+
+  if(sleeping){
+  brightness = b;
+
+  if(onanim == 1) {
+    on1();
+  } else {
+
+  sleeping = false;
+}}
+  cout << "Is awake" << endl;
 }
 
 void rainbow(int i){
@@ -310,11 +364,14 @@ for(int i = 0; i < led_count; i++){
         }else{
 
     if (ledsetting[i] == 41){
-    off();
+    //off();
     }else{
 
+        if (ledsetting[i] == 51){
+        ledcolor[i] = remoteled[i];
+        }else{
 
-}}}}
+}}}}}
 colorphase = colorphase + speed;
 if (colorphase > 20 * lenght) {colorphase = colorphase - 20 * lenght;}
 rainbowphase = rainbowphase + speed;
@@ -360,7 +417,7 @@ for(int i = 0; i < led_count; i++){
 
 void ledcolorset() {
   if (sleeping) {
-    sleep(10);
+    sleep(1);
   } else {
     if (refreshstatics) {
       onetimefuncs();
@@ -369,13 +426,13 @@ void ledcolorset() {
   repeatingfuncs();
 }}
 
-void operating(){
+void operatingwords(){
     string op;
     while (running) {
     op = input("Operation");
 
     if (op == "resize"){
-    ledresize();
+    ledresize(true);
     refreshstatics = true;
     } else {
 
@@ -394,7 +451,7 @@ void operating(){
         if (op == "off") {
         sleep(std::stoi(input("delay(min)"))*60);
         getrgb();
-        ledresize(true, false, 41);
+        ledresize(false, 41);
         } else {
 
     if (op == "resizeall") {
@@ -411,7 +468,7 @@ void operating(){
         } else {
 
     if (op == "resizeeveryn") {
-    ledresize(true, true);
+    ledresize(true);
     refreshstatics = true;
     } else {
 
@@ -438,7 +495,7 @@ void operating(){
         if (op == "on") {
         sleep(std::stoi(input("delay(min)"))*60);
         sleeping = false;
-        ledresize(true, false, defaultsetting);
+        ledresize(false);
         } else {
 
     if (op == "sleep") {
@@ -454,42 +511,286 @@ void operating(){
     close(new_socket);
     } else {
 
-}}} }}} }}} }}} }}}
+        if (op == "settings") {
+        for(int i = 0; i < led_count; i++){
+        cout << ledsetting[i] << endl;
+        }} else {
+
+}}} }}} }}} }}} }}} }
     ledsetting[transmiter] = 0;
 }}
 
+char prevpress ='N';
+int presses = 0;
+int avsets[] = {0,11,12,13,14,15,21,31,51};
+int xpresses = 0;
+const char *dev = "/dev/input/by-path/platform-3f980000.usb-usb-0\:1.4\:1.0-event-kbd";
+struct input_event ev;
+ssize_t n;
+int fd;
+
+
+int chset(int prevset, bool norp) {
+  int i = 0;
+  int arrs = sizeof(avsets);
+  for(i; (avsets[i] != prevset) && (i <= arrs); i++){}
+  //cout << arrs << endl;          //arrs is wrong
+  if (norp) {
+    //[
+    if (i-1 < 0) {
+    i = 9; }
+    //cout << avsets[i-1] << "," << i-1 << endl;
+    return avsets[i-1];
+  }
+    //]
+  if (i+2 > arrs) {
+  i = 0; }
+  //cout << avsets[i+1] << "," << i+1 <<endl;
+  return avsets[i+1];
+  //return prevset;
+}
+
+bool multipress(char op, int max) {
+  if(prevpress == op) {
+    presses ++;
+    } else {
+      prevpress = op;
+      presses = 1;
+    }
+
+  if(presses >= max) {
+    return true; }
+  return false;
+}
+
+//static const char *const evval[3] = {
+//    "RELEASED",
+//    "PRESSED ",
+//    "REPEATED"
+//};
+
+bool readkey(int &op) {
+    while(true){
+    n = read(fd, &ev, sizeof ev);
+      if (n == (ssize_t)-1) {
+        if (errno == EINTR){
+          //continue;
+        } else {
+          cout << "Nope" << endl;
+        }
+      } else
+      if (n != sizeof ev) {
+        errno = EIO;
+        cout << "Nope" << endl;
+      }
+
+      if (ev.type == EV_KEY && ev.value >= 1 && ev.value <= 2){
+        //printf("%s 0x%04x (%d)\n", evval[ev.value], (int)ev.code, (int)ev.code);
+        op = (int)ev.code;
+        cout << (int)op << endl;
+
+        if (op == 1) {
+          xpresses ++;
+        if(xpresses > 6) {
+          off(0, false, 0);
+          running = false;
+          fflush(stdout);
+        }
+        } else { xpresses = 0; }
+      if(op == 14) {
+        return false;
+        cout << "Back" << endl; }
+      return true;
+      break;
+      }
+}}
+
+void operatingpress() {
+
+  fd = open(dev, O_RDONLY);
+  if (fd == -1) {
+    fprintf(stderr, "Cannot open %s: %s.\n", dev, strerror(errno));
+    cout << "Nope" << endl;
+  }
+
+  int op = 0;
+  while(running) {
+    readkey(op);
+
+    if (op == 0) {///1
+      cout << "emptey" << endl;
+    } else {
+
+    if (op == 41) { //`/2
+      cout << "on" << endl;
+      std::thread thread4(on, true, 0, 0, 1, brightness);
+      thread4.detach();
+    } else {
+
+    if (op <= 11 && op >= 2) { //1234567890/3
+      cout << "off" << endl;
+      if(op == 11) {
+        op = 0;
+          } else {
+        op = op - 1; }
+      std::thread thread3(off, op, false, 1);
+      thread3.detach();
+    } else {
+
+    if (op == 12) { //-/4
+      cout << "b-" << endl;
+      brightness = brightness - 5;
+      if(brightness < 0) {
+        brightness = 0; }
+      refreshstatics = true;
+    } else {
+
+    if (op == 13) { //=/5
+      cout << "b+" << endl;
+      brightness = brightness + 5;
+      if(brightness > 255) {
+        brightness = 255; }
+      refreshstatics = true;
+    } else {
+
+    if (op == 43) { //\/6
+      cout << "setting change all" << endl;
+      while(readkey(op)){
+        if (op == 26) ledresize(false, chset(ledsetting[10], true));
+        if (op == 27) ledresize(false, chset(ledsetting[10], false));
+      }
+    } else {
+
+    if (op == 16) { //q/7
+      cout << "setting change 1" << endl;
+      while(readkey(op)){
+        if (op == 26) ledresize(false, chset(ledsetting[desk[1]-10], true), desk[0], desk[1]);
+        if (op == 27) ledresize(false, chset(ledsetting[desk[1]-10], false), desk[0], desk[1]);
+      }
+    } else {
+
+    if (op == 17) { //w/8
+      cout << "setting change 2" << endl;
+      while(readkey(op)){
+        if (op == 26) ledresize(false, chset(ledsetting[monitor[1]-10], true), monitor[0], monitor[1]);
+        if (op == 27) ledresize(false, chset(ledsetting[monitor[1]-10], false), monitor[0], monitor[1]);
+      }
+    } else {
+
+    if (op == 18) { //e/9
+      cout << "setting change 3" << endl;
+      while(readkey(op)){
+        if (op == 26) ledresize(false, chset(ledsetting[abovedesk[1]-10], true), abovedesk[0], abovedesk[1]);
+        if (op == 27) ledresize(false, chset(ledsetting[abovedesk[1]-10], false), abovedesk[0], abovedesk[1]);
+      }
+    } else {
+
+    if (op == 19) { //r/10
+      cout << "setting change 4" << endl;
+      while(readkey(op)){
+        if (op == 26) ledresize(false, chset(ledsetting[flowers[1]-10], true), flowers[0], flowers[1]);
+        if (op == 27) ledresize(false, chset(ledsetting[flowers[1]-10], false), flowers[0], flowers[1]);
+      }
+    } else {
+
+    if (op == 20) { //t/11
+      cout << "setting change 5" << endl;
+      while(readkey(op)){
+        if (op == 26) ledresize(false, chset(ledsetting[bed[1]-10], true), bed[0], bed[1]);
+        if (op == 27) ledresize(false, chset(ledsetting[bed[1]-10], false), bed[0], bed[1]);
+      }
+    } else {
+
+    if (op == 31) { //s/12
+      cout << "Speed" << endl;
+      while(readkey(op)){
+        if (op == 26) speed --;
+        if (op == 27) speed ++;
+        if (speed < 0) speed = 0;
+      }
+    } else {
+
+    if (op == 30) { //a/13
+      cout << "Length" << endl;
+      while(readkey(op)){
+        if (op == 26) lenght = lenght - 5;
+        if (op == 27) lenght = lenght + 5;
+        if (lenght < 1) lenght = 0;
+        getspectrum();
+      }
+    } else {
+
+    }}}} }}}} }}}} }
+    op = 0;
+  }
+}
+
+
+
 void reciever() {
   ConnStart();
-  char op[1024] = {0};
+  int op[1024] = {0};
+  char buffer[1024];
   while(running) {
     if (remotecontrol) {
-    valread = recv(new_socket, op, 1024, 0);
+    valread = recv(new_socket, buffer, 1024, 0);
+    for(int i = 0; i < 1024; i ++) {
+    op[i] = chartoint(buffer[i]);
+    }
     cout << op << endl;
 
-    if (op[0] == 's') {
+    if (op[0] == 0) {
     remotecontrol = false;
     close(new_socket);
     } else {
 
-    if (op[0] == 'd') {
-    int coltemp[3];
-    coltemp[0] = *(uint32_t*)(&op[1]);
-    coltemp[1] = *(uint32_t*)(&op[2]);
-    coltemp[2] = *(uint32_t*)(&op[3]);
-    coltemp[0] = color(coltemp[0], coltemp[1], coltemp[2]);
-    for (int i = 0; i<led_count; i++) {
-    ledcolor[i] = coltemp[0]; }
+    if (op[0] == 1) {
+    cout << "frame" << endl;
+    cout << op[1] << "," << op[2] << "," << op[3] << endl;
+    for(int i = 0; i < led_count; i++ ) {
+    remoteled[i] = color(op[1], op[2], op[3], true);
+    //ledresize(true, false, defaultsetting);
+    }} else {
+
+    if (op[0] == 2) {
+    int from = op[1] << 8 | op[2];
+    int to = op[3] << 8 | op[4];
+    cout << from << endl;
+    cout << to << endl;
+    cout << op[5] << endl;
+    ledresize(false, op[5], from, to, op[6]);
+    refreshstatics = true;
     } else {
 
-    if (op[0] == 'R') {
-    ledresize(true, false, -1);
+    if (op[0] == 3) {
+    brightness = op[1];
+    refreshstatics = true;
     } else {
 
-    if (op[0] == 'A') {
-    ledresize(true, false, defaultsetting);
+    if (op[0] == 4) {
+    std::thread thread3(off, op[1], op[2], op[3]);
+    thread3.detach();
     } else {
 
-}}}}
+    if (op[0] == 5) {
+    std::thread thread4(on, op[1], op[2], op[3], op[4], op[5]);
+    thread4.detach();
+    } else {
+
+    if (op[0] == 6) {
+        for(int i = 0; i < 341; i ++) {
+            remoteled[i] = color(op[3*i], op[3*i-1], op[3*i-2], true);
+        }
+    valread = recv(new_socket, buffer, 1024, 0);
+    for(int i = 0; i < 1024; i ++) {
+    op[i] = chartoint(buffer[i]);
+    }
+        for(int i = 1; i < led_count-341; i ++) {
+            remoteled[i+340] = color(op[3*i], op[3*i-1], op[3*i-2], true);
+        }
+    } else {
+
+}}}}}}}
   } else {
   Connection();
   remotecontrol = true;
@@ -497,30 +798,37 @@ void reciever() {
 
 int main(int argc, char** argv)
 {
-//  valread = read( new_socket , buffer, 1024);
-//  printf("%s\n",buffer );
-//  send(new_socket , hello , strlen(hello) , 0 );
-//  printf("Hello message sent\n");
-
   init_leds(led_count);
   ledsetting.resize(led_count);
   ledcolor.resize(led_count);
+
+  remoteled.resize(led_count);
 
   ledrainbow.resize(led_count * 20);
   for (int i = 0; i < led_count * 20; i++){
     ledrainbow[i].resize(3); }
 
-
   ledrgb.resize(led_count);
   for (int i = 0; i < led_count; i++){
     ledrgb[i].resize(3); }
 
-  //Connection();
   ledsetall();
   getspectrum();
   std::thread thread1(reciever);
-  std::thread thread2(operating);
 
+  string sterchoice;
+  sterchoice = input("Choose method for direct input");
+  if(sterchoice == "m") {
+    std::thread thread2(operatingwords);
+    thread2.detach();
+    } else {
+    std::thread thread2(operatingpress);
+    thread2.detach();
+  }
+
+//while(true) {
+//  sleep(1);
+//}
 
 while (running)
   {
@@ -528,5 +836,7 @@ while (running)
   draw_leds(ledcolor.data());
   }
 
+  sleep(0.5);
   fini_leds();
+  return 0;
 }
