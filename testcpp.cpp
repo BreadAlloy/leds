@@ -64,12 +64,13 @@ char buffer[1024] = {0};
 //char *hello = "Hello from server";
 
 bool remotecontrol = false;
+const int motionblur = 4;
 
 std::vector<uint8_t> ledsetting;
 std::vector<uint32_t> ledcolor;
 std::vector<std::vector<uint8_t>> ledrgb;
 std::vector<std::vector<uint16_t>> ledrainbow;
-std::vector<uint32_t> remoteled;
+std::vector<std::vector<uint8_t>> remoteled;
 
 double now() {
   struct timeval tv;
@@ -368,7 +369,7 @@ for(int i = 0; i < led_count; i++){
     }else{
 
         if (ledsetting[i] == 51){
-        ledcolor[i] = remoteled[i];
+        ledcolor[i] = color(remoteled[i][0], remoteled[i][1], remoteled[i][2], true);
         }else{
 
 }}}}}
@@ -748,8 +749,9 @@ void reciever() {
     cout << "frame" << endl;
     cout << op[1] << "," << op[2] << "," << op[3] << endl;
     for(int i = 0; i < led_count; i++ ) {
-    remoteled[i] = color(op[1], op[2], op[3], true);
-    //ledresize(true, false, defaultsetting);
+        for(int j = 0; j <= 2; j++) {
+            remoteled[i][j] = op[j+1];
+        }
     }} else {
 
     if (op[0] == 2) {
@@ -778,15 +780,17 @@ void reciever() {
     } else {
 
     if (op[0] == 6) {
-        for(int i = 0; i < 341; i ++) {
-            remoteled[i] = color(op[3*i], op[3*i-1], op[3*i-2], true);
+        for(int i = 1; i < 341; i ++) {
+            for(int j = 0; j <= 2; j++) {
+            remoteled[i][j] = (motionblur * remoteled[i][j] + op[3*i-j])/(motionblur+1); }
         }
     valread = recv(new_socket, buffer, 1024, 0);
     for(int i = 0; i < 1024; i ++) {
     op[i] = chartoint(buffer[i]);
     }
-        for(int i = 1; i < led_count-341; i ++) {
-            remoteled[i+340] = color(op[3*i], op[3*i-1], op[3*i-2], true);
+        for(int i = 341; i < led_count; i ++) {
+            for(int j = 0; j <= 2; j++) {
+            remoteled[i][j] = 0;}//(motionblur * remoteled[i][j] + op[3*i-j])/(motionblur+1); }
         }
     } else {
 
@@ -803,6 +807,12 @@ int main(int argc, char** argv)
   ledcolor.resize(led_count);
 
   remoteled.resize(led_count);
+  for (int i = 0; i < led_count; i++){
+    remoteled[i].resize(3);
+    remoteled[i][0] = 0;
+    remoteled[i][1] = 0;
+    remoteled[i][2] = 0;
+  }
 
   ledrainbow.resize(led_count * 20);
   for (int i = 0; i < led_count * 20; i++){
