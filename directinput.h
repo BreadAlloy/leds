@@ -19,6 +19,8 @@ extern int defaultsetting;
 extern bool refreshstatics;
 extern bool sleeping;
 extern bool running;
+extern int onanim;
+extern int offanim;
 
 extern std::vector<std::vector<uint8_t>> ledrgb;
 extern std::vector<std::vector<uint16_t>> ledrainbow;
@@ -48,6 +50,10 @@ const char *devm = "/dev/input/by-path/platform-3f980000.usb-usb-0\:1.2\:1.1-eve
 struct input_event evm, evkb;
 ssize_t nm, nkb;
 int fdm, fdkb;
+
+extern void Save(int fd);
+extern int file;
+
 
 bool multipress(char op, int max) {
   if(prevpress == op) {
@@ -176,10 +182,12 @@ void inputbykeyboard(){
 
     if (op <= 11 && op >= 2) { //1234567890/3
       cout << "off" << endl;
-      if(op == 11) {
-        op = 0;
-          } else {
-        op = op - 1; }
+
+        if(op == 11) {
+          op = 0;
+            } else {
+          op = op - 1; }
+
       turningoff = true;
       delay([](){turningoff = true;},op);
       //std::thread thread3(off, op, false, 1);
@@ -189,17 +197,17 @@ void inputbykeyboard(){
     if (op == 12) { //-/4
       cout << "b-" << endl;
       brightness = brightness - 5;
-      if(brightness < 0) {
-        brightness = 0; }
+      if(brightness < 0) { brightness = 0; }
       refreshstatics = true;
+      Save(file);
     } else {
 
     if (op == 13) { //=/5
       cout << "b+" << endl;
       brightness = brightness + 5;
-      if(brightness > 255) {
-        brightness = 255; }
+      if(brightness > 255) { brightness = 255; }
       refreshstatics = true;
+      Save(file);
     } else {
 
     if (op == 43) { //\/6
@@ -208,6 +216,7 @@ void inputbykeyboard(){
         if (op == 26) ledresize(false, chset(ledsetting[10], true));
         if (op == 27) ledresize(false, chset(ledsetting[10], false));
       }
+      Save(file);
     } else {
 
     if (op == 16) { //q/7
@@ -216,6 +225,7 @@ void inputbykeyboard(){
         if (op == 26) ledresize(false, chset(ledsetting[desk[1]-10], true), desk[0], desk[1]);
         if (op == 27) ledresize(false, chset(ledsetting[desk[1]-10], false), desk[0], desk[1]);
       }
+      Save(file);
     } else {
 
     if (op == 17) { //w/8
@@ -224,6 +234,7 @@ void inputbykeyboard(){
         if (op == 26) ledresize(false, chset(ledsetting[monitor[1]-10], true), monitor[0], monitor[1]);
         if (op == 27) ledresize(false, chset(ledsetting[monitor[1]-10], false), monitor[0], monitor[1]);
       }
+      Save(file);
     } else {
 
     if (op == 18) { //e/9
@@ -232,6 +243,7 @@ void inputbykeyboard(){
         if (op == 26) ledresize(false, chset(ledsetting[abovedesk[1]-10], true), abovedesk[0], abovedesk[1]);
         if (op == 27) ledresize(false, chset(ledsetting[abovedesk[1]-10], false), abovedesk[0], abovedesk[1]);
       }
+      Save(file);
     } else {
 
     if (op == 19) { //r/10
@@ -240,6 +252,7 @@ void inputbykeyboard(){
         if (op == 26) ledresize(false, chset(ledsetting[flowers[1]-10], true), flowers[0], flowers[1]);
         if (op == 27) ledresize(false, chset(ledsetting[flowers[1]-10], false), flowers[0], flowers[1]);
       }
+      Save(file);
     } else {
 
     if (op == 20) { //t/11
@@ -248,13 +261,20 @@ void inputbykeyboard(){
         if (op == 26) ledresize(false, chset(ledsetting[bed[1]-10], true), bed[0], bed[1]);
         if (op == 27) ledresize(false, chset(ledsetting[bed[1]-10], false), bed[0], bed[1]);
       }
+      Save(file);
     } else {
 
     if (op == 31) { //s/12
       cout << "Speed" << endl;
       while(readkey(op, evkb, nkb, fdkb)){
-        if (op == 26) speed --;
-        if (op == 27) speed ++;
+        if (op == 12){
+          speed --;
+          Save(file);
+        }
+        if (op == 13){
+          speed ++;
+          Save(file);
+        }
         if (speed < 0) speed = 0;
       }
     } else {
@@ -262,14 +282,98 @@ void inputbykeyboard(){
     if (op == 30) { //a/13
       cout << "Length" << endl;
       while(readkey(op, evkb, nkb, fdkb)){
-        if (op == 26) lenght = lenght - 5;
-        if (op == 27) lenght = lenght + 5;
+        if (op == 12){
+        lenght = lenght - 5;
+        cout << "L-" << endl;
+        //Save(file);
+        }
+        if (op == 13){
+        lenght = lenght + 5;
+        cout << "L+" << endl;
+        //Save(file);
+        }
         if (lenght < 1) lenght = 0;
         getspectrum();
+      Save(file);
       }
     } else {
 
-}}}} }}}} }}}} }
+    if (op == 49) { //n/14
+      cout << "save" << endl;
+      Save(file);
+      refreshstatics = true;
+    } else {
+
+    if (op == 50) { //m/15
+      cout << "load" << endl;
+      Load(file);
+      refreshstatics = true;
+    } else {
+
+    if (op == 15) { //<tab>/16
+      cout << "Static color change" << endl;
+      while(readkey(op, evkb, nkb, fdkb)){
+        if(op >=2 && op <=11){
+          int temp = op - 2;
+//          cout << temp << endl;
+          while(readkey(op, evkb, nkb, fdkb)){
+            unsigned char* p = nullptr;
+//            cout << "yes" << endl;
+            if(op == 19 || op == 34 || op == 48){
+              if(op == 19) p = &r[temp];
+              if(op == 34) p = &g[temp];
+              if(op == 48) p = &b[temp];
+              while(readkey(op, evkb, nkb, fdkb)){
+                if(op == 12){
+                  if(*p < 1){ *p = 0; }else *p = *p-1;
+                  Save(file);
+   	           refreshstatics = true;
+//       	           cout << (int)*p << endl;
+                }
+                if(op == 13){
+                  if(*p > 254){ *p = 255; }else *p = *p+1;
+                  Save(file);
+                  refreshstatics = true;
+//                  cout << (int)*p << endl;
+                }
+                if(op == 26){
+                  if(*p < 5){ *p = 0; } else *p = *p-5;
+                  refreshstatics = true;
+                  Save(file);
+//                  cout << (int)*p << endl;
+                }
+                if(op == 27){
+                  if(*p > 249){ *p = 255; }else *p = *p+5;
+                  refreshstatics = true;
+                  Save(file);
+//                  cout << (int)*p << endl;
+                }
+              }
+            }
+	  }
+        }
+      }
+    } else {
+
+    if (op == 59) {//fn+f1/17
+      cout << "onanim+" << endl;
+      onanim++;
+      if(onanim > 4){
+        onanim = 0; }
+      cout << onanim << endl;
+      Save(file);
+    } else {
+
+    if (op == 60) {//fn+f2/18
+      cout << "offanim+" << endl;
+      offanim++;
+      if(offanim > 4){
+        offanim = 0; }
+      cout << offanim << endl;
+      Save(file);
+    } else {
+
+}}}} }}}} }}}} }}}} }}
     op = 0;
   }
 }

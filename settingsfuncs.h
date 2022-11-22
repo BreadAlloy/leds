@@ -8,7 +8,7 @@ extern std::vector<uint8_t> ledsetting;
 
 extern string input(const string com);
 
-int avsets[] = {0,11,12,13,14,15,21,31,51};
+std::vector<uint8_t> avsets = {0,11,12,13,14,15,16,17,18,19,20,21,31,51};
 
 void ledresize(bool manual, int setting, int from, int to, int n)
     {
@@ -32,21 +32,42 @@ void ledresize(bool manual, int setting, int from, int to, int n)
     }
 
 int chset(int prevset, bool norp) {
-  int i = 0;
-  int arrs = sizeof(avsets);
-  for(i; (avsets[i] != prevset) && (i <= arrs); i++){}
-  //cout << arrs << endl;          //arrs is wrong
-  if (norp) {
-    //[
-    if (i-1 < 0) {
-    i = 9; }
-    //cout << avsets[i-1] << "," << i-1 << endl;
-    return avsets[i-1];
+  int temp = 1;
+  for(unsigned int i = 0; i < avsets.size(); i++){
+    if(avsets[i] == prevset)temp = i;
   }
-    //]
-  if (i+2 > arrs) {
-  i = 0; }
-  //cout << avsets[i+1] << "," << i+1 <<endl;
-  return avsets[i+1];
-  //return prevset;
+  if(avsets[temp] != prevset){
+    temp = 1;
+    cout << "bruh" << endl;
+  }
+  if(norp){
+    if(temp == 0){ temp = avsets.size()-1; } else { temp--; }
+    return avsets[temp];
+  } else {
+    if(temp == avsets.size()-1){ temp = 0; } else { temp++; }
+    return avsets[temp];
+  }
 }
+
+
+
+#if 0
+
+struct moje_zmienne_t
+{
+int i = 0;
+int j = 0;
+};
+
+
+moje_zmienne_t xxx;
+
+
+
+
+xxx.i = 
+
+
+int i;
+
+#endif

@@ -9,12 +9,14 @@ option(BUILD_TEST "Build test application" ON)
 
 #SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -g -O3 -Wall")
 SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -g -Og --no-omit-frame-pointer -Wall")
+SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -g -O0 --no-omit-frame-pointer -Wall")
 
 set(CMAKE_C_STANDARD 11)
 
 set(LIB_TARGET ws2811)
 set(TEST_TARGET test)
 set(TESTCPP_TARGET testcpp)
+set(FILEREPAIR_TARGET filerepair)
 
 set(LIB_PUBLIC_HEADERS
     ws2811.h
@@ -44,6 +46,10 @@ set(TEST_SOURCES
 
 set(TESTCPP_SOURCES
     testcpp.cpp
+)
+
+set(FILEREPAIR_SOURCES
+    filerepair.cpp
 )
 
 include(GNUInstallDirs)
@@ -88,4 +94,6 @@ if(BUILD_TEST)
     target_link_libraries(${TEST_TARGET} ${LIB_TARGET})
     add_executable(${TESTCPP_TARGET} ${TESTCPP_SOURCES})
     target_link_libraries(${TESTCPP_TARGET} ${LIB_TARGET})
+    add_executable(${FILEREPAIR_TARGET} ${FILEREPAIR_SOURCES})
+    target_link_libraries(${FILEREPAIR_TARGET} ${LIB_TARGET})
 endif()

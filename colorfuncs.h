@@ -21,6 +21,9 @@ extern bool refreshstatics;
 extern bool sleeping;
 extern bool running;
 
+extern std::vector<uint8_t> r;
+extern std::vector<uint8_t> g;
+extern std::vector<uint8_t> b;
 extern std::vector<std::vector<uint8_t>> ledrgb;
 extern std::vector<std::vector<uint16_t>> ledrainbow;
 extern std::vector<std::vector<uint8_t>> remoteled;
@@ -48,9 +51,9 @@ uint32_t color(uint16_t r, uint16_t g, uint16_t b, bool brightcorrect = false)
 }
 
 ////////////////////////
-int r[5] = {0,0,255,1,0};
-int g[5] = {255,255,255,1,1};
-int b[5] = {0,255,255,1,0};
+//int r[5] = {0,0,255,1,0};
+//int g[5] = {255,255,255,1,1};
+//int b[5] = {0,255,255,1,0};
 
 int booltocolor(bool status){
   if(status){
@@ -177,10 +180,11 @@ void on(bool now = true, int hour = 0, int minute = 0, int onanim = 0, int b = b
 extern double now();
 double temptime = 0;
 int targetbrightness = brightness;
-int onanim = 1;
 extern bool turningon;
 extern bool turningoff;
 extern bool offrepeat;
+extern int onanim;
+extern int offanim;
 
 void on(){
   if(sleeping == true && turningon == true){
@@ -197,6 +201,7 @@ void on(){
   if(onanim == 1){
     if(abs(temptime - now()) >= 50000){
       brightness++;
+      refreshstatics = true;
       temptime = now();
     }
 
@@ -219,8 +224,6 @@ void on(){
   } else {
 
 }}}}}}
-
-int offanim = 1;
 
 void off(){
   if(turningoff){
@@ -247,6 +250,7 @@ void off(){
 
     if(abs(temptime - now()) >= 50000){
         brightness--;
+        refreshstatics = true;
         temptime = now();
       }
 
@@ -272,7 +276,7 @@ void off(){
 
 void rainbow(int i){
   rainbowpoint = i*20+rainbowphase;
-  if (rainbowpoint > 20 * lenght){
+  while (rainbowpoint > 20 * led_count - 1){
     rainbowpoint = rainbowpoint - lenght * 20;
     }
   ledcolor[i] = color(ledrainbow[rainbowpoint][0], ledrainbow[rainbowpoint][1], ledrainbow[rainbowpoint][2], true);

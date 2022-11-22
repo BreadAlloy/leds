@@ -26,10 +26,11 @@
 #include "remoteinput.h"
 #include "colorfuncs.h"
 #include "timefuncs.h"
+#include "savingstatus.h"
 
 using namespace std;
 
-int led_count = 621;
+int led_count = 406;
 int brightness = 100;
 
 int desk[2] = {0, 187};
@@ -48,6 +49,11 @@ int colorphase = 0;
 //struct thread thread3;
 //struct thread thread4;
 
+std::vector<uint8_t> r;
+std::vector<uint8_t> g;
+std::vector<uint8_t> b;
+
+int file = 0;
 int slowness = 10;
 int defaultsetting = 21;
 int onbrightness = 0;
@@ -55,6 +61,8 @@ int startbrightness = 3;
 int colorcyclecolor = 0;
 
 int offdelay = 0;
+int onanim = 1;
+int offanim = 1;
 
 float specmod = 0.288;
 bool refreshstatics = true;
@@ -76,7 +84,7 @@ std::vector<uint32_t> ledcolor;
 std::vector<std::vector<uint8_t>> ledrgb;
 std::vector<std::vector<uint16_t>> ledrainbow;
 std::vector<std::vector<uint8_t>> remoteled;
-
+std::vector<unsigned char> settings;
 
 int main(int argc, char** argv)
 {
@@ -103,6 +111,7 @@ int main(int argc, char** argv)
 while (running)
   {
   ledcolorset();
+  refreshstatics = true;
   draw_leds(ledcolor.data());
   }
 

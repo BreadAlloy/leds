@@ -83,7 +83,7 @@ for(int i = 0; i < led_count; i++){
     ledcolor[i] = 0;
     } else {
 
-        if(ledsetting[i] == 11 | ledsetting[i] == 12 | ledsetting[i] == 13 | ledsetting[i] == 14 | ledsetting[i] == 15)
+        if(ledsetting[i] >= 11 && ledsetting[i] <= 20)
         {
         ledcolor[i] = constant(ledsetting[i]-11);
         } else {

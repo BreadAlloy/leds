@@ -1,71 +1,71 @@
 using namespace std;
 
-extern int desk[];
-extern int monitor[];
-extern int abovedesk[];
-extern int transmitter;
-extern int flowers[];
-extern int bed[];
+//#include "variables.h"
 
-extern int led_count;
+//global_leds leds;
 
-extern std::vector<std::vector<uint8_t>> ledrgb;
-extern std::vector<std::vector<uint16_t>> ledrainbow;
-extern std::vector<std::vector<uint8_t>> remoteled;
-extern std::vector<uint8_t> ledsetting;
-extern std::vector<uint32_t> ledcolor;
+
+extern	int led_count;
+
+extern	std::vector<uint8_t> r;
+extern	std::vector<uint8_t> g;
+extern	std::vector<uint8_t> b;
+
+ extern int file;
+
+extern	std::vector<uint8_t> ledsetting;
+extern	std::vector<uint32_t> ledcolor;
+extern	std::vector<std::vector<uint8_t>> ledrgb;
+extern	std::vector<std::vector<uint16_t>> ledrainbow;
+extern	std::vector<std::vector<uint8_t>> remoteled;
+extern	std::vector<unsigned char> settings;
+
+
 
 extern void getspectrum();
 
-void ledsetall()
-    {
-    for (int i = 0; i < led_count; i++)
-    {
-        ledsetting[i] = 0;
-    }
-    for (int i = desk[0]; i <= desk[1]; i++)
-    {
-        ledsetting[i] = 21;
-    }
-    for (int i = monitor[0]; i <= monitor[1]; i++)
-    {
-        ledsetting[i] = 21;
-    }
-    for (int i = abovedesk[0]; i <= abovedesk[1]; i++)
-    {
-        ledsetting[i] = 21;
-    }
-    for (int i = flowers[0]; i <= flowers[1]; i++)
-    {
-        ledsetting[i] = 21;
-    }
-    for (int i = bed[0]; i <= bed[1]; i++)
-    {
-        ledsetting[i] = 21;
-    }
-}
+extern void Load(int fd);
 
 void setup(){
-   init_leds(led_count);
    ledsetting.resize(led_count);
    ledcolor.resize(led_count);
 
    remoteled.resize(led_count);
    for (int i = 0; i < led_count; i++){
       remoteled[i].resize(3);
-      remoteled[i][0] = 0;
+      remoteled[i][0] = 100;
       remoteled[i][1] = 0;
       remoteled[i][2] = 0;
    }
 
+r.resize(10);
+g.resize(10);
+b.resize(10);
+for(int i = 0; i < 10; i++){
+r[i] = 0;
+g[i] = 0;
+b[i] = 0;
+}
    ledrainbow.resize(led_count * 20);
    for (int i = 0; i < led_count * 20; i++){
       ledrainbow[i].resize(3); }
+
 
    ledrgb.resize(led_count);
    for (int i = 0; i < led_count; i++){
       ledrgb[i].resize(3); }
 
-   ledsetall();
+   settings.resize(ledsetting.size()+3*ledcolor.size()+12+r.size()+g.size()+b.size());
+
+
+   file = open("save.txt", O_RDWR);
+
+						led_count = 406;
+   Load(file);
+
+						led_count = 406;
+   init_leds(led_count);
+
+   //ledsetall();
    getspectrum();
 }
